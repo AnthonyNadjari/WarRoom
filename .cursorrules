@@ -1,0 +1,48 @@
+# WarRoom — Cursor / Claude project context
+
+Personal strategic CRM for finance job applications. **Single-user only.** Not SaaS, not multi-tenant, not a prototype. Production-ready internal tool.
+
+## Stack
+
+- **Next.js 14** (App Router), TypeScript, Tailwind CSS
+- **ShadCN-style UI**: Radix primitives in `components/ui/` (button, input, label, dialog, alert-dialog, select, tabs, dropdown-menu, separator, sheet)
+- **Supabase**: PostgreSQL + Email-only Auth. Client in `lib/supabase/` (client.ts, server.ts, middleware.ts)
+- **Vercel**-ready
+
+## Project structure
+
+- **`/app`**: Routes. `(protected)/` = Dashboard, companies, contacts, interactions, settings (sidebar + mobile nav). `/login`, `/auth/callback` public.
+- **`/components`**: `ui/` (ShadCN), `layout/` (sidebar, mobile-nav, header, theme-toggle, search-trigger), `search/` (search-context, search-dialog), forms (company-form, contact-form, interaction-form), delete-confirm-dialog.
+- **`/lib`**: `supabase/`, `utils.ts` (cn), `follow-up.ts` (follow-up severity: normal / orange / red).
+- **`/types`**: `database.ts` — Company, Contact, Interaction, enums (CompanyType, Seniority, InteractionStatus, etc.).
+- **`/hooks`**: `use-theme.tsx` (ThemeProvider, useTheme, localStorage), `use-debounce.ts`.
+- **`/supabase`**: `schema.sql` — companies, contacts, interactions; RLS `user_id = auth.uid()`; enums and indexes.
+
+## Conventions
+
+1. **Auth**: Email only. Middleware redirects unauthenticated to `/login`. Server pages use `createClient()` from `lib/supabase/server` and check `getUser()`.
+2. **Protected layout**: `app/(protected)/layout.tsx` wraps ThemeProvider, SearchProvider, Sidebar, Header, MobileNav, SearchDialog. All child routes are protected.
+3. **Follow-up logic**: Use `getFollowUpSeverity(interaction)` from `lib/follow-up.ts`. Waiting 0–13 days → normal, 14–27 → orange, 28+ → red. `next_follow_up_date` ≤ today overrides to red.
+4. **Delete**: Always use `DeleteConfirmDialog`; never silent delete. Cascade is in DB (contact → interactions, company → contacts → interactions).
+5. **Forms**: Company/Contact use manual Save. Interaction form has debounced auto-save (500 ms) + visible Save button. Use `createClient()` from `lib/supabase/client` in client components.
+6. **Styling**: Tailwind + `cn()` from `lib/utils`. CSS variables in `app/globals.css` (--background, --foreground, etc.). Font: Inter.
+7. **Theme**: Light default; dark toggle in header; key `warroom-theme` in localStorage.
+
+## Key files
+
+- **Schema**: `supabase/schema.sql`
+- **Auth redirect**: `app/auth/callback/route.ts`
+- **Middleware**: `middleware.ts` → `lib/supabase/middleware.ts` (session + redirect)
+- **Dashboard sections**: Red follow-ups, Orange follow-ups, Active interviews, Recently sent (by date_sent DESC)
+- **Company detail**: Tabs “Interactions” and “People”. People = hierarchical contacts by seniority; `manager_id` for indent.
+- **Interactions**: Filters (status, company, priority, category, date range). Slide-over with `InteractionForm`. Follow-up badge from `getFollowUpSeverity`.
+- **Search**: Cmd+K or search icon; company name, contact name, role title, email. `components/search/search-dialog.tsx`.
+- **Settings**: Export interactions to CSV; sign out.
+
+## When editing
+
+- Add new UI primitives in `components/ui/` following existing ShadCN-style (Radix + cn + variants).
+- New Supabase tables: add RLS with `user_id = auth.uid()`, add types in `types/database.ts`, run SQL in Supabase.
+- Keep single-user: no tenant_id, no org, no invite flows.
+- No placeholder UI; everything must be functional.
+- Prefer server-loaded initial data; client state for filters and slide-overs; refetch after mutations where list must update.

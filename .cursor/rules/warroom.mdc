@@ -1,0 +1,47 @@
+---
+description: WarRoom project context — single-user CRM for finance job applications (Next.js 14, Supabase, ShadCN-style UI)
+globs: ["**/*.ts", "**/*.tsx", "**/*.css", "**/schema.sql"]
+alwaysApply: false
+---
+
+# WarRoom
+
+Personal strategic CRM for finance job applications. **Single-user only.** Not SaaS, not multi-tenant. Production-ready internal tool.
+
+## Stack
+
+- Next.js 14 (App Router), TypeScript, Tailwind CSS
+- ShadCN-style UI: Radix in `components/ui/`
+- Supabase: PostgreSQL + Email-only Auth; `lib/supabase/` (client, server, middleware)
+- Vercel-ready
+
+## Structure
+
+- **app**: `(protected)/` = Dashboard, companies, contacts, interactions, settings; `/login`, `/auth/callback`
+- **components**: `ui/`, `layout/`, `search/`, forms (company-form, contact-form, interaction-form), delete-confirm-dialog
+- **lib**: supabase, utils (cn), follow-up.ts (getFollowUpSeverity: normal/orange/red)
+- **types**: database.ts — Company, Contact, Interaction, enums
+- **hooks**: use-theme, use-debounce
+- **supabase**: schema.sql — RLS `user_id = auth.uid()`
+
+## Conventions
+
+1. Auth: Email only; middleware redirects to `/login`; server pages use `createClient()` from `lib/supabase/server`.
+2. Follow-up: Use `getFollowUpSeverity(interaction)` from `lib/follow-up.ts`. Waiting 0–13 days normal, 14–27 orange, 28+ red; `next_follow_up_date` ≤ today → red.
+3. Delete: Always `DeleteConfirmDialog`; no silent delete. Cascade in DB.
+4. Forms: Interaction form = debounced auto-save (500 ms) + Save button. Company/Contact = manual Save.
+5. Styling: Tailwind + `cn()` from `lib/utils`; Inter font; theme in localStorage (`warroom-theme`).
+6. Single-user: No tenant_id, org, or invite flows. No placeholder UI.
+
+## Key paths
+
+- Schema: `supabase/schema.sql`
+- Auth callback: `app/auth/callback/route.ts`
+- Middleware: `middleware.ts` → `lib/supabase/middleware.ts`
+- Dashboard: red/orange/interview/recent sections by date_sent DESC
+- Company detail: tabs Interactions + People (hierarchical by seniority, manager_id indent)
+- Interactions: filters + slide-over with InteractionForm; FollowUpBadge from getFollowUpSeverity
+- Search: Cmd+K; `components/search/search-dialog.tsx`
+- Settings: CSV export, sign out
+
+When adding code: use existing UI in `components/ui/`; add types in `types/database.ts`; RLS on new tables; keep single-user; no placeholders.
