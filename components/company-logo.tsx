@@ -17,6 +17,7 @@ export function CompanyLogo({
   className?: string;
 }) {
   const [imgError, setImgError] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   const initials = name
     .split(/\s+/)
@@ -26,39 +27,35 @@ export function CompanyLogo({
 
   const src = logoUrl
     ? logoUrl
-    : websiteDomain && !imgError
+    : websiteDomain
       ? `https://logo.clearbit.com/${websiteDomain}`
       : null;
 
-  if (src && !imgError) {
-    return (
-      /* eslint-disable-next-line @next/next/no-img-element */
-      <img
-        src={src}
-        alt={name}
-        width={size}
-        height={size}
-        className={cn(
-          "shrink-0 rounded-lg bg-muted object-contain",
-          className
-        )}
-        style={{ width: size, height: size }}
-        onError={() => setImgError(true)}
-      />
-    );
-  }
-
   const fontSize = Math.max(10, Math.round(size * 0.36));
 
+  // Always render the initials fallback as base, overlay image on top when available
   return (
     <div
       className={cn(
-        "shrink-0 rounded-lg bg-primary/10 flex items-center justify-center font-semibold text-primary",
+        "shrink-0 rounded-lg bg-primary/10 flex items-center justify-center font-semibold text-primary relative overflow-hidden",
         className
       )}
       style={{ width: size, height: size, fontSize }}
     >
-      {initials || "?"}
+      {(!src || imgError || !loaded) && (initials || "?")}
+      {src && !imgError && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={src}
+          alt={name}
+          width={size}
+          height={size}
+          className="absolute inset-0 h-full w-full rounded-lg object-contain"
+          onLoad={() => setLoaded(true)}
+          onError={() => setImgError(true)}
+          referrerPolicy="no-referrer"
+        />
+      )}
     </div>
   );
 }

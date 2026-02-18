@@ -36,13 +36,6 @@ const COMPANIES = [
   { name: "Fidelity Investments", type: "AssetManager" as const, mainLocation: "Boston", websiteDomain: "fidelity.com" },
   { name: "Vanguard", type: "AssetManager" as const, mainLocation: "Malvern", websiteDomain: "vanguard.com" },
 
-  // Private Equity
-  { name: "Blackstone", type: "PrivateEquity" as const, mainLocation: "New York", websiteDomain: "blackstone.com" },
-  { name: "KKR", type: "PrivateEquity" as const, mainLocation: "New York", websiteDomain: "kkr.com" },
-  { name: "Carlyle Group", type: "PrivateEquity" as const, mainLocation: "Washington DC", websiteDomain: "carlyle.com" },
-  { name: "Ardian", type: "PrivateEquity" as const, mainLocation: "Paris", websiteDomain: "ardian.com" },
-  { name: "CVC Capital Partners", type: "PrivateEquity" as const, mainLocation: "Luxembourg", websiteDomain: "cvc.com" },
-
   // Prop Shops
   { name: "Jane Street", type: "PropShop" as const, mainLocation: "New York", websiteDomain: "janestreet.com" },
   { name: "Optiver", type: "PropShop" as const, mainLocation: "Amsterdam", websiteDomain: "optiver.com" },
@@ -57,8 +50,8 @@ const COMPANIES = [
 ];
 
 async function main() {
-  // 1. Ensure user exists
-  const email = process.env.SEED_USER_EMAIL ?? "admin@example.com";
+  // 1. Find or create user
+  const email = process.env.SEED_USER_EMAIL ?? "anthony@warroom.app";
   const password = process.env.SEED_USER_PASSWORD ?? "changeme";
 
   let user = await prisma.user.findUnique({ where: { email } });
@@ -69,7 +62,7 @@ async function main() {
     });
     console.log("Created user:", email);
   } else {
-    console.log("User already exists:", email);
+    console.log("Using existing user:", email);
   }
 
   // 2. Seed companies (skip duplicates by name)

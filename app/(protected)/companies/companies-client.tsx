@@ -35,7 +35,7 @@ export function CompaniesClient(props: {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Companies</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {initialCompanies.length} company{initialCompanies.length !== 1 ? "ies" : "y"} tracked
+            {initialCompanies.length} compan{initialCompanies.length !== 1 ? "ies" : "y"} tracked
           </p>
         </div>
         <div className="flex gap-2">
@@ -86,16 +86,9 @@ export function CompaniesClient(props: {
                       <h3 className="font-semibold group-hover:text-primary transition-colors truncate">
                         {c.name}
                       </h3>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {c.type === "Recruiter" && (
-                          <span className="rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 px-2 py-0.5 text-[10px] font-semibold">
-                            Headhunter
-                          </span>
-                        )}
-                        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", TYPE_COLORS[c.type] || TYPE_COLORS.Other)}>
-                          {c.type}
-                        </span>
-                      </div>
+                      <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0", TYPE_COLORS[c.type] || TYPE_COLORS.Other)}>
+                        {c.type === "Recruiter" ? "Headhunter" : c.type}
+                      </span>
                     </div>
                     {c.main_location && (
                       <div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
