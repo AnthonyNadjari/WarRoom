@@ -9,95 +9,30 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useSearchContext } from "./search-context";
-import { createClient } from "@/lib/supabase/client";
+import { searchAll, type SearchHit } from "@/app/actions/search";
 import Link from "next/link";
-import { Building2, User, Mail, Briefcase } from "lucide-react";
+import { Building2, User, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-type SearchHit = {
-  type: "company" | "contact" | "interaction";
-  id: string;
-  href: string;
-  title: string;
-  subtitle?: string;
-};
 
 export function SearchDialog() {
   const { open, setOpen } = useSearchContext();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchHit[]>([]);
   const [loading, setLoading] = useState(false);
-  const supabase = createClient();
 
-  const runSearch = useCallback(
-    async (q: string) => {
-      const trimmed = q.trim().toLowerCase();
-      if (!trimmed) {
-        setResults([]);
-        return;
-      }
-      setLoading(true);
-      try {
-        const [companiesRes, contactsRes, interactionsRes] = await Promise.all([
-          supabase
-            .from("companies")
-            .select("id, name")
-            .ilike("name", `%${trimmed}%`)
-            .limit(5),
-          supabase
-            .from("contacts")
-            .select("id, first_name, last_name, email, exact_title, company_id")
-            .or(
-              `first_name.ilike.%${trimmed}%,last_name.ilike.%${trimmed}%,email.ilike.%${trimmed}%,exact_title.ilike.%${trimmed}%`
-            )
-            .limit(10),
-          supabase
-            .from("interactions")
-            .select("id, role_title, company_id, contact_id")
-            .ilike("role_title", `%${trimmed}%`)
-            .limit(5),
-        ]);
-
-        const hits: SearchHit[] = [];
-
-        companiesRes.data?.forEach((c) => {
-          hits.push({
-            type: "company",
-            id: c.id,
-            href: `/companies/${c.id}`,
-            title: c.name,
-            subtitle: "Company",
-          });
-        });
-
-        contactsRes.data?.forEach((c) => {
-          const name = [c.first_name, c.last_name].filter(Boolean).join(" ") || "Contact";
-          hits.push({
-            type: "contact",
-            id: c.id,
-            href: `/companies/${c.company_id}?tab=people`,
-            title: name,
-            subtitle: c.exact_title || c.email || undefined,
-          });
-        });
-
-        interactionsRes.data?.forEach((i) => {
-          hits.push({
-            type: "interaction",
-            id: i.id,
-            href: `/interactions?highlight=${i.id}`,
-            title: i.role_title || "Interaction",
-            subtitle: "Interaction",
-          });
-        });
-
-        setResults(hits);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [supabase]
-  );
+  const runSearch = useCallback(async (q: string) => {
+    if (!q.trim()) {
+      setResults([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const hits = await searchAll(q);
+      setResults(hits);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => runSearch(query), 200);
@@ -161,9 +96,9 @@ export function SearchDialog() {
                       <Briefcase className="h-4 w-4 text-muted-foreground" />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium truncate">{r.title}</div>
+                      <div className="truncate font-medium">{r.title}</div>
                       {r.subtitle && (
-                        <div className="text-xs text-muted-foreground truncate">
+                        <div className="truncate text-xs text-muted-foreground">
                           {r.subtitle}
                         </div>
                       )}

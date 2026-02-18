@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
+import { updateInteraction } from "@/app/actions/interactions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -59,7 +59,6 @@ export function InteractionForm(props: {
   onClose?: () => void;
 }) {
   const { interaction, onSaved, onClose } = props;
-  const supabase = createClient();
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
 
@@ -80,26 +79,22 @@ export function InteractionForm(props: {
 
   const save = useCallback(async () => {
     setSaving(true);
-    await supabase
-      .from("interactions")
-      .update({
-        role_title: roleTitle || null,
-        global_category: globalCategory || null,
-        type: type || null,
-        status,
-        priority: priority || null,
-        date_sent: dateSent || null,
-        last_update: lastUpdate || null,
-        next_follow_up_date: nextFollowUpDate || null,
-        outcome: outcome || null,
-        comment: comment || null,
-      })
-      .eq("id", interaction.id);
+    await updateInteraction(interaction.id, {
+      role_title: roleTitle || null,
+      global_category: globalCategory || null,
+      type: type || null,
+      status,
+      priority: priority || null,
+      date_sent: dateSent || null,
+      last_update: lastUpdate || null,
+      next_follow_up_date: nextFollowUpDate || null,
+      outcome: outcome || null,
+      comment: comment || null,
+    });
     setSaving(false);
     setDirty(false);
     onSaved?.();
   }, [
-    supabase,
     interaction.id,
     roleTitle,
     globalCategory,

@@ -1,18 +1,13 @@
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { getCurrentUserId } from "@/lib/session";
+import { getCompanies } from "@/app/actions/companies";
 import { CompaniesClient } from "./companies-client";
 
 export default async function CompaniesPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const userId = await getCurrentUserId();
+  if (!userId) redirect("/login");
 
-  const { data: companies } = await supabase
-    .from("companies")
-    .select("id, name, type, main_location")
-    .order("name");
+  const companies = await getCompanies();
 
-  return <CompaniesClient initialCompanies={companies ?? []} />;
+  return <CompaniesClient initialCompanies={companies} />;
 }

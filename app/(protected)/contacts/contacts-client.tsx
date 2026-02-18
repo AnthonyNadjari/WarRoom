@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
-import type { Contact, Company } from "@/types/database";
+import type { Contact } from "@/types/database";
 
-type ContactWithCompany = Contact & { company?: Company | null };
+type ContactWithCompany = Contact & { company?: { id: string; name: string } | null };
 
 export function ContactsClient(props: { initialContacts: ContactWithCompany[] }) {
   const { initialContacts } = props;

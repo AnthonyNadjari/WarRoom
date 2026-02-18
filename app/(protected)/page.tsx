@@ -1,13 +1,13 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserId } from "@/lib/session";
 import { DashboardClient } from "./dashboard-client";
+import { getInteractionsForDashboard } from "@/app/actions/interactions";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const userId = await getCurrentUserId();
+  if (!userId) redirect("/login");
 
-  return <DashboardClient />;
+  const interactions = await getInteractionsForDashboard();
+
+  return <DashboardClient initialInteractions={interactions} />;
 }

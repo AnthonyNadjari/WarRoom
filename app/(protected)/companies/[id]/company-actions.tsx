@@ -1,22 +1,24 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { useState } from "react";
 import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
+import { deleteCompany } from "@/app/actions/companies";
 
-export function CompanyActions(props: { companyId: string; companyName: string }) {
+export function CompanyActions(props: {
+  companyId: string;
+  companyName: string;
+}) {
   const router = useRouter();
-  const supabase = createClient();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   async function handleDelete() {
     setDeleting(true);
-    await supabase.from("companies").delete().eq("id", props.companyId);
+    await deleteCompany(props.companyId);
     setDeleting(false);
     router.push("/companies");
     router.refresh();

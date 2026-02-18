@@ -1,11 +1,10 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserId } from "@/lib/session";
 import { CompanyForm } from "@/components/company-form";
 
 export default async function NewCompanyPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const userId = await getCurrentUserId();
+  if (!userId) redirect("/login");
 
   return (
     <div className="flex flex-1 flex-col p-4 md:p-6">

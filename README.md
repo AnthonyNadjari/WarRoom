@@ -8,7 +8,8 @@ Personal strategic CRM for finance job applications. Single-user, production-rea
 - **TypeScript**
 - **Tailwind CSS**
 - **ShadCN UI** (Radix primitives)
-- **Supabase** (PostgreSQL + Auth)
+- **Prisma** + **Neon** PostgreSQL
+- **NextAuth v4** (Credentials provider)
 - **Vercel**-ready
 
 ## Setup
@@ -19,28 +20,40 @@ Personal strategic CRM for finance job applications. Single-user, production-rea
    npm install
    ```
 
-2. Create a Supabase project at [supabase.com](https://supabase.com). Enable **Email** auth only.
+2. Create a [Neon](https://neon.tech) PostgreSQL database.
 
-3. Run the schema in the Supabase SQL Editor:
+3. Add environment variables:
 
-   - Open `supabase/schema.sql` and execute its contents in your project.
+   - Copy `.env.example` to `.env`
+   - Set `DATABASE_URL` to your Neon connection string
+   - Set `NEXTAUTH_SECRET` (generate with `openssl rand -base64 32`)
+   - Set `NEXTAUTH_URL` to `http://localhost:3000` for local dev
 
-4. Add environment variables:
+4. Run Prisma migrations:
 
-   - Copy `.env.example` to `.env.local`
-   - Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` from the Supabase dashboard (Settings → API).
+   ```bash
+   npx prisma migrate dev
+   ```
 
-5. Run the app:
+5. Create your user (single-user app). Open a Prisma console and insert a user with a bcrypt-hashed password:
+
+   ```bash
+   npx prisma studio
+   ```
+
+   Or use a seed script to create the initial user.
+
+6. Run the app:
 
    ```bash
    npm run dev
    ```
 
-6. Sign up once via Supabase Auth (e.g. Dashboard → Authentication → Users → Add user), then sign in at `/login`.
+7. Sign in at `/login` with your email and password.
 
 ## Features
 
-- **Auth**: Email-only, protected routes, redirect to `/login` when unauthenticated.
+- **Auth**: Email + password (NextAuth Credentials), protected routes, redirect to `/login` when unauthenticated.
 - **Dashboard**: Red / orange / interview / recently sent sections, sorted by `date_sent`.
 - **Companies**: List, create, edit, delete (with confirmation). Company detail with **Interactions** and **People** tabs.
 - **People**: Hierarchical list by seniority, optional `manager_id` indent. Add contact from company People tab.
@@ -49,7 +62,7 @@ Personal strategic CRM for finance job applications. Single-user, production-rea
 - **Global search**: Cmd+K (desktop) or search icon; company, contact, role, email.
 - **Theme**: Light default, dark toggle (top right), persisted in `localStorage`.
 - **Settings**: Export interactions to CSV, sign out.
-- **Delete**: Confirmation modal before delete; contact delete cascades interactions.
+- **Delete**: Confirmation modal before delete; cascade deletes in DB.
 
 ## Project structure
 
@@ -57,16 +70,17 @@ Personal strategic CRM for finance job applications. Single-user, production-rea
 /app
   /(protected)     # Dashboard, companies, contacts, interactions, settings
   /login
-  /auth/callback
-/components        # UI (ShadCN-style) + layout + search + forms
-/lib               # Supabase client/server/middleware, utils, follow-up logic
-/types             # DB types and enums
+  /api/auth        # NextAuth API routes
+  /actions         # Server actions (CRUD)
+/components        # UI (ShadCN-style) + layout + search + forms + providers
+/lib               # auth, session, prisma, map-prisma, utils, follow-up
+/types             # DB types, enums, next-auth augmentation
 /hooks             # useTheme, useDebounce
-/supabase          # schema.sql
+/prisma            # schema.prisma
 ```
 
 ## Deploy (Vercel)
 
 1. Push to GitHub and import the repo in Vercel.
-2. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel environment variables.
-3. In Supabase Auth settings, add your Vercel URL to **Redirect URLs** (e.g. `https://your-app.vercel.app/auth/callback`).
+2. Add environment variables in Vercel: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`.
+3. Prisma migrations run automatically via the build command, or add `npx prisma migrate deploy` to your build script.

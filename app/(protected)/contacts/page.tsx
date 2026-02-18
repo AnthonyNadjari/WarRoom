@@ -1,16 +1,13 @@
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { getCurrentUserId } from "@/lib/session";
+import { getContactsWithCompany } from "@/app/actions/contacts";
 import { ContactsClient } from "./contacts-client";
 
 export default async function ContactsPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const userId = await getCurrentUserId();
+  if (!userId) redirect("/login");
 
-  const { data: contacts } = await supabase
-    .from("contacts")
-    .select("*, company:companies(id, name)")
-    .order("created_at", { ascending: false });
+  const contacts = await getContactsWithCompany();
 
-  return <ContactsClient initialContacts={contacts ?? []} />;
+  return <ContactsClient initialContacts={contacts} />;
 }

@@ -3,8 +3,8 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { getFollowUpSeverity } from "@/lib/follow-up";
+import { getInteractionsWithRelations } from "@/app/actions/interactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -104,11 +104,8 @@ export function InteractionsClient(props: {
   ]);
 
   async function refetch() {
-    const { data } = await createClient()
-      .from("interactions")
-      .select("*, company:companies(id, name), contact:contacts(id, first_name, last_name)")
-      .order("date_sent", { ascending: false });
-    if (data) setInteractions(data);
+    const data = await getInteractionsWithRelations();
+    setInteractions(data as InteractionRow[]);
   }
 
   return (

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Contact, ContactCategory, Seniority } from "@/types/database";
+import { createContact, updateContact } from "@/app/actions/contacts";
 
 const CATEGORY_OPTIONS: ContactCategory[] = [
   "Sales",
@@ -44,13 +44,16 @@ export function ContactForm(props: {
 }) {
   const { companyId, contact, managerOptions = [] } = props;
   const router = useRouter();
-  const supabase = createClient();
   const [saving, setSaving] = useState(false);
   const [firstName, setFirstName] = useState(contact?.first_name ?? "");
   const [lastName, setLastName] = useState(contact?.last_name ?? "");
   const [exactTitle, setExactTitle] = useState(contact?.exact_title ?? "");
-  const [category, setCategory] = useState<ContactCategory | "">(contact?.category ?? "");
-  const [seniority, setSeniority] = useState<Seniority | "">(contact?.seniority ?? "");
+  const [category, setCategory] = useState<ContactCategory | "">(
+    contact?.category ?? ""
+  );
+  const [seniority, setSeniority] = useState<Seniority | "">(
+    contact?.seniority ?? ""
+  );
   const [location, setLocation] = useState(contact?.location ?? "");
   const [email, setEmail] = useState(contact?.email ?? "");
   const [phone, setPhone] = useState(contact?.phone ?? "");
@@ -61,35 +64,32 @@ export function ContactForm(props: {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      const payload = {
+        company_id: companyId,
+        first_name: firstName || null,
+        last_name: lastName || null,
+        exact_title: exactTitle || null,
+        category: category || null,
+        seniority: seniority || null,
+        location: location || null,
+        email: email || null,
+        phone: phone || null,
+        linkedin_url: linkedinUrl || null,
+        manager_id: managerId || null,
+        notes: notes || null,
+      };
+      if (contact) {
+        await updateContact(contact.id, payload);
+        router.refresh();
+      } else {
+        await createContact(payload);
+        router.push("/companies/" + companyId + "?tab=people");
+        router.refresh();
+      }
+    } finally {
       setSaving(false);
-      return;
     }
-    const payload = {
-      user_id: user.id,
-      company_id: companyId,
-      first_name: firstName || null,
-      last_name: lastName || null,
-      exact_title: exactTitle || null,
-      category: category || null,
-      seniority: seniority || null,
-      location: location || null,
-      email: email || null,
-      phone: phone || null,
-      linkedin_url: linkedinUrl || null,
-      manager_id: managerId || null,
-      notes: notes || null,
-    };
-    if (contact) {
-      await supabase.from("contacts").update(payload).eq("id", contact.id);
-      router.refresh();
-    } else {
-      const { data } = await supabase.from("contacts").insert(payload).select("id").single();
-      if (data) router.push("/companies/" + companyId + "?tab=people");
-      router.refresh();
-    }
-    setSaving(false);
   }
 
   return (
@@ -97,36 +97,59 @@ export function ContactForm(props: {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>First name</Label>
-          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          <Input
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+          />
         </div>
         <div className="space-y-2">
           <Label>Last name</Label>
-          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          <Input
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+          />
         </div>
       </div>
       <div className="space-y-2">
         <Label>Exact title</Label>
-        <Input value={exactTitle} onChange={(e) => setExactTitle(e.target.value)} />
+        <Input
+          value={exactTitle}
+          onChange={(e) => setExactTitle(e.target.value)}
+        />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Category</Label>
-          <Select value={category} onValueChange={(v) => setCategory(v as ContactCategory)}>
-            <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+          <Select
+            value={category}
+            onValueChange={(v) => setCategory(v as ContactCategory)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
             <SelectContent>
               {CATEGORY_OPTIONS.map((c) => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
           <Label>Seniority</Label>
-          <Select value={seniority} onValueChange={(v) => setSeniority(v as Seniority)}>
-            <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+          <Select
+            value={seniority}
+            onValueChange={(v) => setSeniority(v as Seniority)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
             <SelectContent>
               {SENIORITY_OPTIONS.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -134,7 +157,11 @@ export function ContactForm(props: {
       </div>
       <div className="space-y-2">
         <Label>Email</Label>
-        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
       </div>
       <div className="space-y-2">
         <Label>Phone</Label>
@@ -142,21 +169,31 @@ export function ContactForm(props: {
       </div>
       <div className="space-y-2">
         <Label>Location</Label>
-        <Input value={location} onChange={(e) => setLocation(e.target.value)} />
+        <Input
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+        />
       </div>
       <div className="space-y-2">
         <Label>LinkedIn URL</Label>
-        <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} />
+        <Input
+          value={linkedinUrl}
+          onChange={(e) => setLinkedinUrl(e.target.value)}
+        />
       </div>
       {managerOptions.length > 0 && (
         <div className="space-y-2">
           <Label>Manager</Label>
           <Select value={managerId} onValueChange={setManagerId}>
-            <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="">—</SelectItem>
               {managerOptions.map((m) => (
-                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                <SelectItem key={m.id} value={m.id}>
+                  {m.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -167,8 +204,16 @@ export function ContactForm(props: {
         <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
       <div className="flex gap-2">
-        <Button type="submit" disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
-        <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? "Saving…" : "Save"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => router.back()}
+        >
+          Cancel
+        </Button>
       </div>
     </form>
   );

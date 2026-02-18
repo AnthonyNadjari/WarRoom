@@ -1,65 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState } from "react";
 import Link from "next/link";
 import { getFollowUpSeverity } from "@/lib/follow-up";
 import type { InteractionWithRelations } from "@/types/database";
 import { cn } from "@/lib/utils";
-
-type Section = "red" | "orange" | "interview" | "recent";
-
-function useDashboardInteractions() {
-  const [data, setData] = useState<{
-    red: InteractionWithRelations[];
-    orange: InteractionWithRelations[];
-    interview: InteractionWithRelations[];
-    recent: InteractionWithRelations[];
-  }>({ red: [], orange: [], interview: [], recent: [] });
-  const [loading, setLoading] = useState(true);
-  const supabase = createClient();
-
-  useEffect(() => {
-    async function load() {
-      const { data: rows, error } = await supabase
-        .from("interactions")
-        .select(
-          "*, company:companies(id, name), contact:contacts(id, first_name, last_name)"
-        )
-        .order("date_sent", { ascending: false });
-
-      if (error) {
-        setLoading(false);
-        return;
-      }
-
-      const red: InteractionWithRelations[] = [];
-      const orange: InteractionWithRelations[] = [];
-      const interview: InteractionWithRelations[] = [];
-      const recent: InteractionWithRelations[] = [];
-
-      const seen = new Set<string>();
-
-      for (const i of rows || []) {
-        const severity = getFollowUpSeverity(i);
-        if (severity === "red") red.push(i as InteractionWithRelations);
-        else if (severity === "orange") orange.push(i as InteractionWithRelations);
-        else if (i.status === "Interview") interview.push(i as InteractionWithRelations);
-      }
-
-      for (const i of rows || []) {
-        if (recent.length >= 10) break;
-        recent.push(i as InteractionWithRelations);
-      }
-
-      setData({ red, orange, interview, recent });
-      setLoading(false);
-    }
-    load();
-  }, [supabase]);
-
-  return { data, loading };
-}
 
 function InteractionRow({
   i,
@@ -127,15 +72,24 @@ function SectionBlock({
   );
 }
 
-export function DashboardClient() {
-  const { data, loading } = useDashboardInteractions();
+export function DashboardClient({
+  initialInteractions,
+}: {
+  initialInteractions: InteractionWithRelations[];
+}) {
+  const red: InteractionWithRelations[] = [];
+  const orange: InteractionWithRelations[] = [];
+  const interview: InteractionWithRelations[] = [];
+  const recent: InteractionWithRelations[] = [];
 
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center p-8">
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      </div>
-    );
+  for (const i of initialInteractions) {
+    const severity = getFollowUpSeverity(i);
+    if (severity === "red") red.push(i);
+    else if (severity === "orange") orange.push(i);
+    else if (i.status === "Interview") interview.push(i);
+  }
+  for (let idx = 0; idx < Math.min(10, initialInteractions.length); idx++) {
+    recent.push(initialInteractions[idx]);
   }
 
   return (
@@ -145,24 +99,24 @@ export function DashboardClient() {
         <div className="grid gap-8 md:grid-cols-2">
           <SectionBlock
             title="Red follow-ups (≥28 days or overdue)"
-            items={data.red}
+            items={red}
             severity="red"
             emptyMessage="None"
           />
           <SectionBlock
             title="Orange follow-ups (14–27 days)"
-            items={data.orange}
+            items={orange}
             severity="orange"
             emptyMessage="None"
           />
           <SectionBlock
             title="Active interviews"
-            items={data.interview}
+            items={interview}
             emptyMessage="None"
           />
           <SectionBlock
             title="Recently sent"
-            items={data.recent}
+            items={recent}
             emptyMessage="No interactions yet"
           />
         </div>

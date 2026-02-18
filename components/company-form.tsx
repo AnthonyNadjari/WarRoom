@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { CompanyType } from "@/types/database";
+import { createCompany, updateCompany } from "@/app/actions/companies";
 
 const COMPANY_TYPES: CompanyType[] = [
   "Bank",
@@ -23,11 +23,16 @@ const COMPANY_TYPES: CompanyType[] = [
   "Other",
 ];
 
-type CompanyEdit = { id: string; name: string; type: CompanyType; main_location: string | null; notes: string | null };
+type CompanyEdit = {
+  id: string;
+  name: string;
+  type: CompanyType;
+  main_location: string | null;
+  notes: string | null;
+};
 
 export function CompanyForm({ company }: { company?: CompanyEdit }) {
   const router = useRouter();
-  const supabase = createClient();
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState(company?.name ?? "");
   const [type, setType] = useState<CompanyType>(company?.type ?? "Other");
@@ -37,28 +42,27 @@ export function CompanyForm({ company }: { company?: CompanyEdit }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
+    try {
+      if (company) {
+        await updateCompany(company.id, {
+          name,
+          type,
+          main_location: mainLocation || null,
+          notes: notes || null,
+        });
+        router.push("/companies/" + company.id);
+      } else {
+        const created = await createCompany({
+          name,
+          type,
+          main_location: mainLocation || null,
+          notes: notes || null,
+        });
+        if (created?.id) router.push("/companies/" + created.id);
+      }
+    } finally {
       setSaving(false);
-      return;
     }
-    if (company) {
-      await supabase
-        .from("companies")
-        .update({ name, type, main_location: mainLocation || null, notes: notes || null })
-        .eq("id", company.id);
-      router.push("/companies/" + company.id);
-    } else {
-      const { data } = await supabase
-        .from("companies")
-        .insert({ user_id: user.id, name, type, main_location: mainLocation || null, notes: notes || null })
-        .select("id")
-        .single();
-      if (data) router.push(`/companies/${data.id}`);
-    }
-    setSaving(false);
   }
 
   return (
@@ -108,7 +112,11 @@ export function CompanyForm({ company }: { company?: CompanyEdit }) {
           {saving ? "Saving…" : "Save"}
         </Button>
         {company && (
-          <Button type="button" variant="outline" onClick={() => router.push(`/companies/${company.id}`)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/companies/" + company.id)}
+          >
             Cancel
           </Button>
         )}

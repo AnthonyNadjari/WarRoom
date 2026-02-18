@@ -1,5 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
+import { getCurrentUserId } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
+import { companyTypeToApi, interactionStatusToApi, interactionTypeToApi } from "@/lib/map-prisma";
 import { CompanyDetailClient } from "./company-detail-client";
 
 export default async function CompanyPage({
@@ -11,37 +13,84 @@ export default async function CompanyPage({
 }) {
   const { id } = await params;
   const { tab } = await searchParams;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const userId = await getCurrentUserId();
+  if (!userId) redirect("/login");
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("*")
-    .eq("id", id)
-    .single();
-
+  const company = await prisma.company.findFirst({
+    where: { id, userId },
+  });
   if (!company) notFound();
 
-  const { data: contacts } = await supabase
-    .from("contacts")
-    .select("*")
-    .eq("company_id", id)
-    .order("created_at", { ascending: false });
+  const contacts = await prisma.contact.findMany({
+    where: { companyId: id, userId },
+    orderBy: { createdAt: "desc" },
+  });
+  const interactions = await prisma.interaction.findMany({
+    where: { companyId: id, userId },
+    include: {
+      contact: {
+        select: { id: true, firstName: true, lastName: true },
+      },
+    },
+    orderBy: { dateSent: "desc" },
+  });
 
-  const { data: interactions } = await supabase
-    .from("interactions")
-    .select("*, contact:contacts(id, first_name, last_name)")
-    .eq("company_id", id)
-    .order("date_sent", { ascending: false });
+  const companyApi = {
+    id: company.id,
+    user_id: company.userId,
+    name: company.name,
+    type: companyTypeToApi(company.type) as import("@/types/database").CompanyType,
+    main_location: company.mainLocation,
+    notes: company.notes,
+    created_at: company.createdAt.toISOString(),
+  };
+  const contactsApi = contacts.map((c) => ({
+    id: c.id,
+    user_id: c.userId,
+    company_id: c.companyId,
+    first_name: c.firstName,
+    last_name: c.lastName,
+    exact_title: c.exactTitle,
+    category: c.category,
+    seniority: c.seniority,
+    location: c.location,
+    email: c.email,
+    phone: c.phone,
+    linkedin_url: c.linkedinUrl,
+    manager_id: c.managerId,
+    notes: c.notes,
+    created_at: c.createdAt.toISOString(),
+  }));
+  const interactionsApi = interactions.map((i) => ({
+    id: i.id,
+    user_id: i.userId,
+    company_id: i.companyId,
+    contact_id: i.contactId,
+    role_title: i.roleTitle,
+    global_category: i.globalCategory,
+    type: i.type != null ? interactionTypeToApi(i.type) : null,
+    status: interactionStatusToApi(i.status),
+    priority: i.priority,
+    date_sent: i.dateSent?.toISOString().slice(0, 10) ?? null,
+    last_update: i.lastUpdate?.toISOString().slice(0, 10) ?? null,
+    next_follow_up_date: i.nextFollowUpDate?.toISOString().slice(0, 10) ?? null,
+    outcome: i.outcome,
+    comment: i.comment,
+    created_at: i.createdAt.toISOString(),
+    contact: i.contact
+      ? {
+          id: i.contact.id,
+          first_name: i.contact.firstName,
+          last_name: i.contact.lastName,
+        }
+      : null,
+  })) as import("@/types/database").InteractionWithRelations[];
 
   return (
     <CompanyDetailClient
-      company={company}
-      contacts={contacts ?? []}
-      interactions={interactions ?? []}
+      company={companyApi}
+      contacts={contactsApi}
+      interactions={interactionsApi}
       defaultTab={tab === "people" ? "people" : "interactions"}
     />
   );
