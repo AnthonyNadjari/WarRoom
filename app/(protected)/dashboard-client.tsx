@@ -15,7 +15,7 @@ import {
 import { getFollowUpSeverity } from "@/lib/follow-up";
 import { CompanyLogo } from "@/components/company-logo";
 import type { InteractionWithRelations } from "@/types/database";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 function StatCard({
   label,
@@ -95,7 +95,7 @@ function InteractionRow({
           </span>
         )}
         <span className="text-xs text-muted-foreground">
-          {i.date_sent ? new Date(i.date_sent).toLocaleDateString() : "\u2014"}
+          {i.date_sent ? formatDate(i.date_sent) : "\u2014"}
         </span>
         <span className={cn(
           "rounded-full px-2 py-0.5 text-[10px] font-semibold",

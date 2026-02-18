@@ -10,7 +10,7 @@ import { CompanyLogo } from "@/components/company-logo";
 import { getRecruiterStats } from "@/app/actions/interactions";
 import type { Company, Contact, Interaction } from "@/types/database";
 import { getFollowUpSeverity } from "@/lib/follow-up";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 type InteractionWithContact = Interaction & {
   contact?: { id: string; first_name: string | null; last_name: string | null } | null;
@@ -92,7 +92,7 @@ function ContactCard({
       </div>
       <div className="shrink-0 text-xs text-muted-foreground">
         {lastContactDate
-          ? new Date(lastContactDate).toLocaleDateString()
+          ? formatDate(lastContactDate)
           : "\u2014"}
       </div>
     </div>
@@ -280,7 +280,7 @@ export function CompanyDetailClient({
                       <span>{name}</span>
                       <span className="text-muted-foreground">
                         {i.role_title ?? "\u2014"} {"\u00B7"} {i.status}
-                        {i.date_sent && ` \u00B7 ${new Date(i.date_sent).toLocaleDateString()}`}
+                        {i.date_sent && ` \u00B7 ${formatDate(i.date_sent)}`}
                       </span>
                     </Link>
                   </li>

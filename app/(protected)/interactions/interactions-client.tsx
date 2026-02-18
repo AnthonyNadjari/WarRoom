@@ -43,7 +43,7 @@ import type {
   InteractionType,
   Company,
 } from "@/types/database";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 type InteractionRow = Interaction & {
   company?: { id: string; name: string; website_domain?: string | null; logo_url?: string | null } | null;
@@ -234,7 +234,16 @@ function NewInteractionDialog({
         <form onSubmit={handleSubmit} className="space-y-4 pt-2">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Company *</Label>
+              <div className="flex items-center justify-between">
+                <Label>Company *</Label>
+                <Link
+                  href="/companies/new"
+                  className="text-[11px] text-primary hover:underline"
+                  onClick={() => onOpenChange(false)}
+                >
+                  + New company
+                </Link>
+              </div>
               <Select value={companyId} onValueChange={setCompanyId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select company" />
@@ -249,7 +258,18 @@ function NewInteractionDialog({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Contact *</Label>
+              <div className="flex items-center justify-between">
+                <Label>Contact *</Label>
+                {companyId && !loadingContacts && contacts.length === 0 && (
+                  <Link
+                    href={`/companies/${companyId}/contacts/new`}
+                    className="text-[11px] text-primary hover:underline"
+                    onClick={() => onOpenChange(false)}
+                  >
+                    + Add contact
+                  </Link>
+                )}
+              </div>
               <Select
                 value={contactId}
                 onValueChange={setContactId}
@@ -262,7 +282,9 @@ function NewInteractionDialog({
                         ? "Loading..."
                         : !companyId
                           ? "Pick company first"
-                          : "Select contact"
+                          : contacts.length === 0
+                            ? "No contacts — add one first"
+                            : "Select contact"
                     }
                   />
                 </SelectTrigger>
@@ -714,7 +736,7 @@ function InteractionsInner(props: {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {i.date_sent
-                          ? new Date(i.date_sent).toLocaleDateString()
+                          ? formatDate(i.date_sent)
                           : "—"}
                       </td>
                       <td className="px-4 py-3">
@@ -777,7 +799,7 @@ function InteractionsInner(props: {
                       )}
                       {i.date_sent && (
                         <span className="text-xs text-muted-foreground">
-                          {new Date(i.date_sent).toLocaleDateString()}
+                          {formatDate(i.date_sent)}
                         </span>
                       )}
                       <FollowUpBadge interaction={i} />

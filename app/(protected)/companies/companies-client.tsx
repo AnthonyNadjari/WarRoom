@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Plus, Building2, MapPin, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,15 +19,43 @@ const TYPE_COLORS: Record<string, string> = {
   Other: "bg-muted text-muted-foreground",
 };
 
+const FILTER_TABS: { label: string; value: string }[] = [
+  { label: "All", value: "all" },
+  { label: "Banks", value: "Bank" },
+  { label: "Hedge Funds", value: "Hedge Fund" },
+  { label: "Asset Managers", value: "Asset Manager" },
+  { label: "Prop Shops", value: "Prop Shop" },
+  { label: "Recruiters", value: "Recruiter" },
+  { label: "Other", value: "Other" },
+];
+
 export function CompaniesClient(props: {
   initialCompanies: Pick<Company, "id" | "name" | "type" | "main_location" | "website_domain" | "logo_url">[];
 }) {
   const { initialCompanies } = props;
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
 
-  const filtered = initialCompanies.filter((c) =>
-    c.name.toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    let list = initialCompanies;
+    if (typeFilter !== "all") {
+      list = list.filter((c) => c.type === typeFilter);
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter((c) => c.name.toLowerCase().includes(q));
+    }
+    return list;
+  }, [initialCompanies, typeFilter, search]);
+
+  // Count per type for the tab badges
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const c of initialCompanies) {
+      counts[c.type] = (counts[c.type] || 0) + 1;
+    }
+    return counts;
+  }, [initialCompanies]);
 
   return (
     <div className="flex flex-1 flex-col p-5 md:p-8">
@@ -56,6 +84,37 @@ export function CompaniesClient(props: {
           </Button>
         </div>
       </div>
+
+      {/* Category filter tabs */}
+      <div className="mb-5 flex flex-wrap gap-1.5">
+        {FILTER_TABS.map((tab) => {
+          const count = tab.value === "all" ? initialCompanies.length : (typeCounts[tab.value] || 0);
+          if (tab.value !== "all" && count === 0) return null;
+          const active = typeFilter === tab.value;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setTypeFilter(tab.value)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                active
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {tab.label}
+              <span className={cn(
+                "ml-1.5 tabular-nums",
+                active ? "text-primary-foreground/70" : "text-muted-foreground/60"
+              )}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex-1">
         {filtered.length === 0 ? (
           <div className="glass-card flex flex-col items-center justify-center p-12 text-center">
