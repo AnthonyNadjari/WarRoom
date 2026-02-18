@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/session";
-import type { ContactCategory, Seniority } from "@prisma/client";
+import type { ContactCategory, Seniority, Contact } from "@prisma/client";
 
 export async function getContactsWithCompany() {
   const userId = await getCurrentUserId();
@@ -14,7 +14,7 @@ export async function getContactsWithCompany() {
     include: { company: { select: { id: true, name: true } } },
     orderBy: { createdAt: "desc" },
   });
-  return list.map((c) => ({
+  return list.map((c: Contact & { company: { id: string; name: string } }) => ({
     id: c.id,
     user_id: c.userId,
     company_id: c.companyId,

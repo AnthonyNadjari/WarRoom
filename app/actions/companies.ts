@@ -16,7 +16,7 @@ export async function getCompanies() {
     select: { id: true, name: true, type: true, mainLocation: true },
     orderBy: { name: "asc" },
   });
-  return list.map((c) => ({
+  return list.map((c: { id: string; name: string; type: PrismaCompanyType; mainLocation: string | null }) => ({
     id: c.id,
     name: c.name,
     type: companyTypeToApi(c.type) as CompanyType,

@@ -3,6 +3,7 @@ import { getCurrentUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { companyTypeToApi, interactionStatusToApi, interactionTypeToApi } from "@/lib/map-prisma";
 import { CompanyDetailClient } from "./company-detail-client";
+import type { Contact, Interaction, CompanyType as PrismaCompanyType, ContactCategory, Seniority, InteractionGlobalCategory, InteractionType as PrismaInteractionType, InteractionStatus as PrismaInteractionStatus, Priority, Outcome } from "@prisma/client";
 
 export default async function CompanyPage({
   params,
@@ -44,7 +45,7 @@ export default async function CompanyPage({
     notes: company.notes,
     created_at: company.createdAt.toISOString(),
   };
-  const contactsApi = contacts.map((c) => ({
+  const contactsApi = contacts.map((c: Contact) => ({
     id: c.id,
     user_id: c.userId,
     company_id: c.companyId,
@@ -61,7 +62,7 @@ export default async function CompanyPage({
     notes: c.notes,
     created_at: c.createdAt.toISOString(),
   }));
-  const interactionsApi = interactions.map((i) => ({
+  const interactionsApi = interactions.map((i: Interaction & { contact: { id: string; firstName: string | null; lastName: string | null } | null }) => ({
     id: i.id,
     user_id: i.userId,
     company_id: i.companyId,

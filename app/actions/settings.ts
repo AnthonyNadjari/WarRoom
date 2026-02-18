@@ -2,8 +2,14 @@
 
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/session";
+import type { Interaction } from "@prisma/client";
 
-export async function getInteractionsForExport() {
+type ExportRow = Interaction & {
+  company: { name: string } | null;
+  contact: { firstName: string | null; lastName: string | null; email: string | null } | null;
+};
+
+export async function getInteractionsForExport(): Promise<ExportRow[] | null> {
   const userId = await getCurrentUserId();
   if (!userId) return null;
   return prisma.interaction.findMany({
@@ -15,5 +21,5 @@ export async function getInteractionsForExport() {
       },
     },
     orderBy: { dateSent: "desc" },
-  });
+  }) as Promise<ExportRow[]>;
 }
