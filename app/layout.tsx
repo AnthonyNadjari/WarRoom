@@ -11,6 +11,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "WarRoom",
   description: "Personal strategic CRM for finance job applications",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

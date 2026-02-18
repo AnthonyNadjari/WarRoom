@@ -1,13 +1,30 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Plus, Filter, X } from "lucide-react";
 import { getFollowUpSeverity } from "@/lib/follow-up";
-import { getInteractionsWithRelations } from "@/app/actions/interactions";
+import {
+  getInteractionsWithRelations,
+  createInteraction,
+  getContactsForCompany,
+} from "@/app/actions/interactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { InteractionForm } from "@/components/interaction-form";
 import {
   Select,
@@ -21,13 +38,18 @@ import type {
   InteractionStatus,
   Priority,
   InteractionGlobalCategory,
+  InteractionType,
   Company,
 } from "@/types/database";
 import { cn } from "@/lib/utils";
 
 type InteractionRow = Interaction & {
   company?: { id: string; name: string } | null;
-  contact?: { id: string; first_name: string | null; last_name: string | null } | null;
+  contact?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
 };
 
 const STATUS_OPTIONS: InteractionStatus[] = [
@@ -50,29 +72,322 @@ const CATEGORY_OPTIONS: InteractionGlobalCategory[] = [
   "Other",
 ];
 
+const TYPE_OPTIONS: InteractionType[] = [
+  "Official Application",
+  "LinkedIn Message",
+  "Cold Email",
+  "Call",
+  "Referral",
+];
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+        status === "Interview" &&
+          "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
+        status === "Offer" &&
+          "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
+        status === "Rejected" &&
+          "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+        status === "Sent" &&
+          "bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300",
+        status === "Waiting" &&
+          "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+        status === "Follow-up" &&
+          "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300",
+        status === "Closed" && "bg-muted text-muted-foreground"
+      )}
+    >
+      {status}
+    </span>
+  );
+}
+
+function PriorityDot({ priority }: { priority: string | null }) {
+  if (!priority) return null;
+  return (
+    <span
+      className={cn(
+        "inline-block h-2 w-2 rounded-full",
+        priority === "High" && "bg-red-500",
+        priority === "Medium" && "bg-amber-500",
+        priority === "Low" && "bg-emerald-500"
+      )}
+      title={priority}
+    />
+  );
+}
+
 function FollowUpBadge({ interaction }: { interaction: Interaction }) {
   const severity = getFollowUpSeverity(interaction);
   if (severity === "normal") return null;
   return (
     <span
       className={cn(
-        "rounded px-1.5 py-0.5 text-[10px] font-medium",
-        severity === "red" && "bg-destructive/20 text-destructive",
-        severity === "orange" && "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+        "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+        severity === "red" && "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+        severity === "orange" &&
+          "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
       )}
     >
-      {severity === "red" ? "Overdue" : "Follow-up"}
+      {severity === "red" ? "Overdue" : "Soon"}
     </span>
   );
 }
 
-export function InteractionsClient(props: {
+function NewInteractionDialog({
+  open,
+  onOpenChange,
+  companies,
+  onCreated,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  companies: Pick<Company, "id" | "name">[];
+  onCreated: () => void;
+}) {
+  const [companyId, setCompanyId] = useState("");
+  const [contactId, setContactId] = useState("");
+  const [contacts, setContacts] = useState<
+    { id: string; firstName: string | null; lastName: string | null }[]
+  >([]);
+  const [roleTitle, setRoleTitle] = useState("");
+  const [type, setType] = useState<InteractionType | "">("");
+  const [status, setStatus] = useState<InteractionStatus>("Sent");
+  const [priority, setPriority] = useState<Priority | "">("");
+  const [category, setCategory] = useState<InteractionGlobalCategory | "">("");
+  const [dateSent, setDateSent] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
+  const [comment, setComment] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+
+  useEffect(() => {
+    if (!companyId) {
+      setContacts([]);
+      setContactId("");
+      return;
+    }
+    setLoadingContacts(true);
+    getContactsForCompany(companyId).then((data) => {
+      setContacts(data);
+      setContactId("");
+      setLoadingContacts(false);
+    });
+  }, [companyId]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!companyId || !contactId) return;
+    setSaving(true);
+    await createInteraction({
+      company_id: companyId,
+      contact_id: contactId,
+      role_title: roleTitle || null,
+      global_category: (category as InteractionGlobalCategory) || null,
+      type: (type as InteractionType) || null,
+      status,
+      priority: (priority as Priority) || null,
+      date_sent: dateSent || null,
+      comment: comment || null,
+    });
+    setSaving(false);
+    onOpenChange(false);
+    setCompanyId("");
+    setContactId("");
+    setRoleTitle("");
+    setType("");
+    setStatus("Sent");
+    setPriority("");
+    setCategory("");
+    setDateSent(new Date().toISOString().slice(0, 10));
+    setComment("");
+    onCreated();
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>New Interaction</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Company *</Label>
+              <Select value={companyId} onValueChange={setCompanyId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select company" />
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Contact *</Label>
+              <Select
+                value={contactId}
+                onValueChange={setContactId}
+                disabled={!companyId || loadingContacts}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      loadingContacts
+                        ? "Loading..."
+                        : !companyId
+                          ? "Pick company first"
+                          : "Select contact"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {[c.firstName, c.lastName].filter(Boolean).join(" ") ||
+                        "Unnamed"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Role title</Label>
+            <Input
+              value={roleTitle}
+              onChange={(e) => setRoleTitle(e.target.value)}
+              placeholder="e.g. Analyst — S&T"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Select
+                value={type}
+                onValueChange={(v) => setType(v as InteractionType)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TYPE_OPTIONS.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as InteractionStatus)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Select
+                value={priority}
+                onValueChange={(v) => setPriority(v as Priority)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITY_OPTIONS.map((p) => (
+                    <SelectItem key={p} value={p}>
+                      {p}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select
+                value={category}
+                onValueChange={(v) =>
+                  setCategory(v as InteractionGlobalCategory)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_OPTIONS.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Date sent</Label>
+              <Input
+                type="date"
+                value={dateSent}
+                onChange={(e) => setDateSent(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Comment</Label>
+            <Input
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Notes..."
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving || !companyId || !contactId}>
+              {saving ? "Creating..." : "Create interaction"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InteractionsInner(props: {
   initialInteractions: InteractionRow[];
   companies: Pick<Company, "id" | "name">[];
 }) {
-  const { initialInteractions, companies } = props;
+  const { companies } = props;
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
+  const router = useRouter();
 
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
@@ -82,16 +397,34 @@ export function InteractionsClient(props: {
   const [dateTo, setDateTo] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [interactions, setInteractions] = useState(props.initialInteractions);
-  const selectedInteraction = selectedId ? interactions.find((i) => i.id === selectedId) : null;
+  const [showNewDialog, setShowNewDialog] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const selectedInteraction = selectedId
+    ? interactions.find((i) => i.id === selectedId)
+    : null;
+
+  const hasFilters =
+    statusFilter !== "all" ||
+    companyFilter !== "all" ||
+    priorityFilter !== "all" ||
+    categoryFilter !== "all" ||
+    dateFrom ||
+    dateTo;
 
   const filtered = useMemo(() => {
     let list = [...interactions];
-    if (statusFilter !== "all") list = list.filter((i) => i.status === statusFilter);
-    if (companyFilter !== "all") list = list.filter((i) => i.company_id === companyFilter);
-    if (priorityFilter !== "all") list = list.filter((i) => i.priority === priorityFilter);
-    if (categoryFilter !== "all") list = list.filter((i) => i.global_category === categoryFilter);
-    if (dateFrom) list = list.filter((i) => i.date_sent && i.date_sent >= dateFrom);
-    if (dateTo) list = list.filter((i) => i.date_sent && i.date_sent <= dateTo);
+    if (statusFilter !== "all")
+      list = list.filter((i) => i.status === statusFilter);
+    if (companyFilter !== "all")
+      list = list.filter((i) => i.company_id === companyFilter);
+    if (priorityFilter !== "all")
+      list = list.filter((i) => i.priority === priorityFilter);
+    if (categoryFilter !== "all")
+      list = list.filter((i) => i.global_category === categoryFilter);
+    if (dateFrom)
+      list = list.filter((i) => i.date_sent && i.date_sent >= dateFrom);
+    if (dateTo)
+      list = list.filter((i) => i.date_sent && i.date_sent <= dateTo);
     return list;
   }, [
     interactions,
@@ -108,88 +441,156 @@ export function InteractionsClient(props: {
     setInteractions(data as InteractionRow[]);
   }
 
-  return (
-    <div className="flex flex-1 flex-col p-4 md:p-6">
-      <h1 className="mb-4 text-xl font-semibold tracking-tight">Interactions</h1>
+  function clearFilters() {
+    setStatusFilter("all");
+    setCompanyFilter("all");
+    setPriorityFilter("all");
+    setCategoryFilter("all");
+    setDateFrom("");
+    setDateTo("");
+  }
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {STATUS_OPTIONS.map((s) => (
-              <SelectItem key={s} value={s}>{s}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={companyFilter} onValueChange={setCompanyFilter}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Company" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All companies</SelectItem>
-            {companies.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="Priority" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            {PRIORITY_OPTIONS.map((p) => (
-              <SelectItem key={p} value={p}>{p}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            {CATEGORY_OPTIONS.map((c) => (
-              <SelectItem key={c} value={c}>{c}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input
-          type="date"
-          placeholder="From"
-          value={dateFrom}
-          onChange={(e) => setDateFrom(e.target.value)}
-          className="w-[130px]"
-        />
-        <Input
-          type="date"
-          placeholder="To"
-          value={dateTo}
-          onChange={(e) => setDateTo(e.target.value)}
-          className="w-[130px]"
-        />
+  return (
+    <div className="flex flex-1 flex-col p-5 md:p-8">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Interactions</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {filtered.length} interaction{filtered.length !== 1 ? "s" : ""}
+            {hasFilters ? " (filtered)" : ""}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(hasFilters && "border-primary text-primary")}
+          >
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filters
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearFilters();
+                }}
+                className="ml-1.5 rounded-full p-0.5 hover:bg-accent"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </Button>
+          <Button size="sm" onClick={() => setShowNewDialog(true)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            New interaction
+          </Button>
+        </div>
       </div>
 
+      {showFilters && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={companyFilter} onValueChange={setCompanyFilter}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Company" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All companies</SelectItem>
+              {companies.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              {PRIORITY_OPTIONS.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              {CATEGORY_OPTIONS.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            type="date"
+            placeholder="From"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="w-[140px]"
+          />
+          <Input
+            type="date"
+            placeholder="To"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="w-[140px]"
+          />
+        </div>
+      )}
+
       {filtered.length === 0 ? (
-        <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No interactions match your filters.
+        <div className="glass-card flex flex-col items-center justify-center p-12 text-center">
+          <p className="text-muted-foreground">
+            {interactions.length === 0
+              ? "No interactions yet. Create your first one to get started."
+              : "No interactions match your filters."}
+          </p>
+          {interactions.length === 0 && (
+            <Button
+              className="mt-4"
+              size="sm"
+              onClick={() => setShowNewDialog(true)}
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Create interaction
+            </Button>
+          )}
         </div>
       ) : (
         <>
-          <div className="hidden md:block overflow-x-auto">
+          <div className="glass-card hidden overflow-hidden md:block">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-muted-foreground">
-                  <th className="p-2 font-medium">Company</th>
-                  <th className="p-2 font-medium">Contact</th>
-                  <th className="p-2 font-medium">Role</th>
-                  <th className="p-2 font-medium">Status</th>
-                  <th className="p-2 font-medium">Priority</th>
-                  <th className="p-2 font-medium">Date sent</th>
-                  <th className="p-2 font-medium"></th>
+                <tr className="border-b bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-4 py-3 font-medium">Company</th>
+                  <th className="px-4 py-3 font-medium">Contact</th>
+                  <th className="px-4 py-3 font-medium">Role</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Priority</th>
+                  <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
@@ -198,7 +599,9 @@ export function InteractionsClient(props: {
                   const company = i.company as { name?: string } | null;
                   const contact = i.contact;
                   const name = contact
-                    ? [contact.first_name, contact.last_name].filter(Boolean).join(" ")
+                    ? [contact.first_name, contact.last_name]
+                        .filter(Boolean)
+                        .join(" ")
                     : "—";
                   return (
                     <tr
@@ -206,27 +609,50 @@ export function InteractionsClient(props: {
                       role="button"
                       tabIndex={0}
                       onClick={() => setSelectedId(i.id)}
-                      onKeyDown={(e) => e.key === "Enter" && setSelectedId(i.id)}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" && setSelectedId(i.id)
+                      }
                       className={cn(
-                        "border-b transition-colors hover:bg-accent/30",
+                        "border-b transition-colors hover:bg-accent/30 cursor-pointer",
                         highlightId === i.id && "bg-accent",
-                        severity === "red" && "bg-destructive/5",
-                        severity === "orange" && "bg-amber-500/5"
+                        severity === "red" &&
+                          "bg-red-50/50 dark:bg-red-950/20",
+                        severity === "orange" &&
+                          "bg-amber-50/50 dark:bg-amber-950/20"
                       )}
                     >
-                      <td className="p-2">
-                        <Link href={"/companies/" + i.company_id} className="hover:underline">
+                      <td className="px-4 py-3">
+                        <Link
+                          href={"/companies/" + i.company_id}
+                          className="font-medium hover:underline"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {company?.name ?? "—"}
                         </Link>
                       </td>
-                      <td className="p-2">{name}</td>
-                      <td className="p-2">{i.role_title ?? "—"}</td>
-                      <td className="p-2">{i.status}</td>
-                      <td className="p-2">{i.priority ?? "—"}</td>
-                      <td className="p-2">
-                        {i.date_sent ? new Date(i.date_sent).toLocaleDateString() : "—"}
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {name}
                       </td>
-                      <td className="p-2">
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {i.role_title ?? "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <StatusBadge status={i.status} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <PriorityDot priority={i.priority} />
+                          <span className="text-muted-foreground">
+                            {i.priority ?? "—"}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {i.date_sent
+                          ? new Date(i.date_sent).toLocaleDateString()
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-3">
                         <FollowUpBadge interaction={i} />
                       </td>
                     </tr>
@@ -236,35 +662,15 @@ export function InteractionsClient(props: {
             </table>
           </div>
 
-          <Sheet open={!!selectedId} onOpenChange={(open) => !open && setSelectedId(null)}>
-            <SheetContent>
-              <SheetHeader>
-                <SheetTitle>
-                  {selectedInteraction
-                    ? (selectedInteraction.company as { name?: string })?.name + " · " +
-                      (selectedInteraction.contact
-                        ? [selectedInteraction.contact.first_name, selectedInteraction.contact.last_name].filter(Boolean).join(" ")
-                        : "")
-                    : "Interaction"}
-                </SheetTitle>
-              </SheetHeader>
-              {selectedInteraction && (
-                <InteractionForm
-                  interaction={selectedInteraction}
-                  onSaved={refetch}
-                  onClose={() => setSelectedId(null)}
-                />
-              )}
-            </SheetContent>
-          </Sheet>
-
           <ul className="space-y-2 md:hidden">
             {filtered.map((i) => {
               const severity = getFollowUpSeverity(i);
               const company = i.company as { name?: string } | null;
               const contact = i.contact;
               const name = contact
-                ? [contact.first_name, contact.last_name].filter(Boolean).join(" ")
+                ? [contact.first_name, contact.last_name]
+                    .filter(Boolean)
+                    .join(" ")
                 : "—";
               return (
                 <li key={i.id}>
@@ -272,18 +678,33 @@ export function InteractionsClient(props: {
                     type="button"
                     onClick={() => setSelectedId(i.id)}
                     className={cn(
-                      "block rounded-md border p-3 text-sm transition-colors hover:bg-accent/50",
-                      severity === "red" && "border-destructive/50 bg-destructive/5",
-                      severity === "orange" && "border-amber-500/50 bg-amber-500/5"
+                      "block w-full rounded-xl border bg-card p-4 text-left text-sm transition-all hover:shadow-sm",
+                      severity === "red" &&
+                        "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30",
+                      severity === "orange" &&
+                        "border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30"
                     )}
                   >
-                    <div className="font-medium">{company?.name ?? "—"}</div>
-                    <div className="text-muted-foreground">{name} · {i.role_title ?? "—"}</div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span>{i.status}</span>
-                      <span>{i.priority ?? "—"}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold">
+                        {company?.name ?? "—"}
+                      </span>
+                      <StatusBadge status={i.status} />
+                    </div>
+                    <div className="mt-1 text-muted-foreground">
+                      {name} · {i.role_title ?? "—"}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      {i.priority && (
+                        <div className="flex items-center gap-1">
+                          <PriorityDot priority={i.priority} />
+                          <span className="text-xs">{i.priority}</span>
+                        </div>
+                      )}
                       {i.date_sent && (
-                        <span>{new Date(i.date_sent).toLocaleDateString()}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(i.date_sent).toLocaleDateString()}
+                        </span>
                       )}
                       <FollowUpBadge interaction={i} />
                     </div>
@@ -294,6 +715,55 @@ export function InteractionsClient(props: {
           </ul>
         </>
       )}
+
+      <Sheet
+        open={!!selectedId}
+        onOpenChange={(open) => !open && setSelectedId(null)}
+      >
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>
+              {selectedInteraction
+                ? (selectedInteraction.company as { name?: string })?.name +
+                  " · " +
+                  (selectedInteraction.contact
+                    ? [
+                        selectedInteraction.contact.first_name,
+                        selectedInteraction.contact.last_name,
+                      ]
+                        .filter(Boolean)
+                        .join(" ")
+                    : "")
+                : "Interaction"}
+            </SheetTitle>
+          </SheetHeader>
+          {selectedInteraction && (
+            <InteractionForm
+              interaction={selectedInteraction}
+              onSaved={refetch}
+              onClose={() => setSelectedId(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
+      <NewInteractionDialog
+        open={showNewDialog}
+        onOpenChange={setShowNewDialog}
+        companies={companies}
+        onCreated={refetch}
+      />
     </div>
+  );
+}
+
+export function InteractionsClient(props: {
+  initialInteractions: InteractionRow[];
+  companies: Pick<Company, "id" | "name">[];
+}) {
+  return (
+    <Suspense>
+      <InteractionsInner {...props} />
+    </Suspense>
   );
 }

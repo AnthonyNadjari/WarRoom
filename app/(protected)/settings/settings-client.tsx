@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signOut } from "next-auth/react";
+import { Download, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { getInteractionsForExport } from "@/app/actions/settings";
@@ -70,7 +71,9 @@ export function SettingsClient() {
       const a = document.createElement("a");
       a.href = url;
       a.download =
-        "warroom-interactions-" + new Date().toISOString().slice(0, 10) + ".csv";
+        "warroom-interactions-" +
+        new Date().toISOString().slice(0, 10) +
+        ".csv";
       a.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -85,13 +88,11 @@ export function SettingsClient() {
   }
 
   return (
-    <div className="max-w-md space-y-6">
-      <section>
-        <h2 className="mb-2 text-sm font-medium text-muted-foreground">
-          Export
-        </h2>
-        <p className="mb-2 text-sm text-muted-foreground">
-          Download all interactions as a CSV file.
+    <div className="max-w-lg space-y-6">
+      <div className="glass-card p-5">
+        <h2 className="mb-1 font-semibold">Export data</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Download all interactions as a CSV file for Excel or Google Sheets.
         </p>
         <Button
           variant="outline"
@@ -99,17 +100,20 @@ export function SettingsClient() {
           onClick={handleExportCSV}
           disabled={exporting}
         >
-          {exporting ? "Exporting…" : "Export to CSV"}
+          <Download className="mr-1.5 h-3.5 w-3.5" />
+          {exporting ? "Exporting..." : "Export to CSV"}
         </Button>
-      </section>
-      <section>
-        <h2 className="mb-2 text-sm font-medium text-muted-foreground">
-          Account
-        </h2>
+      </div>
+      <div className="glass-card p-5">
+        <h2 className="mb-1 font-semibold">Account</h2>
+        <p className="mb-4 text-sm text-muted-foreground">
+          Sign out of your WarRoom session.
+        </p>
         <Button variant="outline" size="sm" onClick={handleSignOut}>
+          <LogOut className="mr-1.5 h-3.5 w-3.5" />
           Sign out
         </Button>
-      </section>
+      </div>
     </div>
   );
 }

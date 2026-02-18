@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
+import { Crosshair } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,7 +31,7 @@ function LoginForm() {
     });
     setLoading(false);
     if (result?.error) {
-      setMessage({ type: "error", text: result.error });
+      setMessage({ type: "error", text: "Invalid email or password" });
       return;
     }
     if (result?.ok) {
@@ -39,52 +40,57 @@ function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-sm space-y-6">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">WarRoom</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Sign in to your account
-        </p>
-      </div>
-      <form onSubmit={handleSignIn} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            autoComplete="current-password"
-          />
-        </div>
-        {message && (
-          <p
-            className={
-              message.type === "error"
-                ? "text-sm text-destructive"
-                : "text-sm text-green-600 dark:text-green-400"
-            }
-          >
-            {message.text}
+    <div className="w-full max-w-sm">
+      <div className="glass-card p-8 shadow-lg">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary shadow-lg">
+            <Crosshair className="h-7 w-7 text-primary-foreground" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">WarRoom</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Sign in to your strategic CRM
           </p>
-        )}
-        <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? "Signing in…" : "Sign in"}
-        </Button>
-      </form>
+        </div>
+        <form onSubmit={handleSignIn} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              className="h-11"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              className="h-11"
+            />
+          </div>
+          {message && (
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-300">
+              {message.text}
+            </div>
+          )}
+          <Button
+            type="submit"
+            className="h-11 w-full text-sm font-semibold"
+            disabled={loading}
+          >
+            {loading ? "Signing in..." : "Sign in"}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

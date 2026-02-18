@@ -7,8 +7,13 @@ export default async function SettingsPage() {
   if (!userId) redirect("/login");
 
   return (
-    <div className="flex flex-1 flex-col p-4 md:p-6">
-      <h1 className="mb-4 text-xl font-semibold tracking-tight">Settings</h1>
+    <div className="flex flex-1 flex-col p-5 md:p-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage your account and export data
+        </p>
+      </div>
       <SettingsClient />
     </div>
   );

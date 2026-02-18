@@ -6,7 +6,6 @@ import { Header } from "@/components/layout/header";
 import { SearchDialog } from "@/components/search/search-dialog";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { SearchProvider } from "@/components/search/search-context";
-import { cn } from "@/lib/utils";
 
 export default function ProtectedLayout({
   children,
@@ -18,14 +17,9 @@ export default function ProtectedLayout({
       <SearchProvider>
         <div className="min-h-screen bg-background">
           <Sidebar />
-          <div className="md:pl-56">
+          <div className="md:pl-60">
             <Header />
-            <main
-              className={cn(
-                "min-h-[calc(100vh-3.5rem)] pb-20 md:pb-0",
-                "flex flex-col"
-              )}
-            >
+            <main className="min-h-[calc(100vh-4rem)] pb-20 md:pb-0">
               {children}
             </main>
           </div>

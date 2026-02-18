@@ -132,3 +132,55 @@ export async function updateInteraction(
   revalidatePath("/interactions");
   revalidatePath("/");
 }
+
+export async function createInteraction(data: {
+  company_id: string;
+  contact_id: string;
+  role_title?: string | null;
+  global_category?: InteractionGlobalCategory | null;
+  type?: InteractionType | null;
+  status?: InteractionStatus | string;
+  priority?: Priority | null;
+  date_sent?: Date | string | null;
+  comment?: string | null;
+}) {
+  const userId = await getCurrentUserId();
+  if (!userId) redirect("/login");
+
+  const status = data.status
+    ? interactionStatusFromApi(String(data.status))
+    : undefined;
+  const type = data.type
+    ? interactionTypeFromApi(String(data.type))
+    : undefined;
+
+  const interaction = await prisma.interaction.create({
+    data: {
+      userId,
+      companyId: data.company_id,
+      contactId: data.contact_id,
+      roleTitle: data.role_title ?? null,
+      globalCategory: data.global_category ?? null,
+      type: type ?? null,
+      status: status ?? "Sent",
+      priority: data.priority ?? null,
+      dateSent: data.date_sent ? new Date(data.date_sent) : null,
+      comment: data.comment ?? null,
+    },
+  });
+
+  revalidatePath("/interactions");
+  revalidatePath("/");
+
+  return interaction.id;
+}
+
+export async function getContactsForCompany(companyId: string) {
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
+  return prisma.contact.findMany({
+    where: { companyId, userId },
+    select: { id: true, firstName: true, lastName: true },
+    orderBy: { lastName: "asc" },
+  });
+}
