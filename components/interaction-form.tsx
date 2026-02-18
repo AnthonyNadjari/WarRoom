@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { updateInteraction } from "@/app/actions/interactions";
+import { updateInteraction, getRecruitersForSelect } from "@/app/actions/interactions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -15,6 +15,7 @@ import {
 import type {
   Interaction,
   InteractionStatus,
+  InteractionSourceType,
   Priority,
   InteractionGlobalCategory,
   InteractionType,
@@ -76,6 +77,17 @@ export function InteractionForm(props: {
   );
   const [outcome, setOutcome] = useState<Outcome | "">(interaction.outcome ?? "");
   const [comment, setComment] = useState(interaction.comment ?? "");
+  const [sourceType, setSourceType] = useState<InteractionSourceType>(
+    interaction.source_type ?? "Direct"
+  );
+  const [recruiterId, setRecruiterId] = useState(interaction.recruiter_id ?? "");
+  const [recruiters, setRecruiters] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    if (sourceType === "Via Recruiter" && recruiters.length === 0) {
+      getRecruitersForSelect().then(setRecruiters);
+    }
+  }, [sourceType, recruiters.length]);
 
   const save = useCallback(async () => {
     setSaving(true);
@@ -90,6 +102,8 @@ export function InteractionForm(props: {
       next_follow_up_date: nextFollowUpDate || null,
       outcome: outcome || null,
       comment: comment || null,
+      source_type: sourceType,
+      recruiter_id: sourceType === "Via Recruiter" ? (recruiterId || null) : null,
     });
     setSaving(false);
     setDirty(false);
@@ -106,6 +120,8 @@ export function InteractionForm(props: {
     nextFollowUpDate,
     outcome,
     comment,
+    sourceType,
+    recruiterId,
     onSaved,
   ]);
 
@@ -125,6 +141,8 @@ export function InteractionForm(props: {
     nextFollowUpDate,
     outcome,
     comment,
+    sourceType,
+    recruiterId,
     save,
   ]);
 
@@ -206,6 +224,41 @@ export function InteractionForm(props: {
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
+          <Label>Source</Label>
+          <Select
+            value={sourceType}
+            onValueChange={(v) => {
+              patch(setSourceType, v as InteractionSourceType);
+              if (v === "Direct") setRecruiterId("");
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Direct">Direct</SelectItem>
+              <SelectItem value="Via Recruiter">Via Recruiter</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {sourceType === "Via Recruiter" && (
+          <div className="space-y-2">
+            <Label>Recruiter</Label>
+            <Select value={recruiterId} onValueChange={(v) => patch(setRecruiterId, v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select recruiter" />
+              </SelectTrigger>
+              <SelectContent>
+                {recruiters.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
           <Label>Date sent</Label>
           <Input
             type="date"
@@ -252,7 +305,7 @@ export function InteractionForm(props: {
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save"}
+          {saving ? "Saving\u2026" : "Save"}
         </Button>
         {onClose && (
           <Button type="button" variant="outline" onClick={onClose}>

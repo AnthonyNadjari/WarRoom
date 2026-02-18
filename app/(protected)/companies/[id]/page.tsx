@@ -1,9 +1,9 @@
 import { redirect, notFound } from "next/navigation";
 import { getCurrentUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { companyTypeToApi, interactionStatusToApi, interactionTypeToApi } from "@/lib/map-prisma";
+import { companyTypeToApi, interactionStatusToApi, interactionTypeToApi, sourceTypeToApi } from "@/lib/map-prisma";
 import { CompanyDetailClient } from "./company-detail-client";
-import type { Contact, Interaction, CompanyType as PrismaCompanyType, ContactCategory, Seniority, InteractionGlobalCategory, InteractionType as PrismaInteractionType, InteractionStatus as PrismaInteractionStatus, Priority, Outcome } from "@prisma/client";
+import type { Contact, Interaction } from "@prisma/client";
 
 export default async function CompanyPage({
   params,
@@ -42,6 +42,8 @@ export default async function CompanyPage({
     name: company.name,
     type: companyTypeToApi(company.type) as import("@/types/database").CompanyType,
     main_location: company.mainLocation,
+    website_domain: company.websiteDomain,
+    logo_url: company.logoUrl,
     notes: company.notes,
     created_at: company.createdAt.toISOString(),
   };
@@ -77,6 +79,8 @@ export default async function CompanyPage({
     next_follow_up_date: i.nextFollowUpDate?.toISOString().slice(0, 10) ?? null,
     outcome: i.outcome,
     comment: i.comment,
+    source_type: sourceTypeToApi(i.sourceType),
+    recruiter_id: i.recruiterId,
     created_at: i.createdAt.toISOString(),
     contact: i.contact
       ? {
@@ -92,7 +96,7 @@ export default async function CompanyPage({
       company={companyApi}
       contacts={contactsApi}
       interactions={interactionsApi}
-      defaultTab={tab === "people" ? "people" : "interactions"}
+      defaultTab={tab === "people" ? "people" : tab === "performance" ? "performance" : "interactions"}
     />
   );
 }

@@ -6,7 +6,7 @@ import { Download, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { getInteractionsForExport } from "@/app/actions/settings";
-import { interactionStatusToApi } from "@/lib/map-prisma";
+import { interactionStatusToApi, sourceTypeToApi } from "@/lib/map-prisma";
 
 export function SettingsClient() {
   const [exporting, setExporting] = useState(false);
@@ -31,12 +31,15 @@ export function SettingsClient() {
         "Last update",
         "Next follow-up",
         "Outcome",
+        "Source",
+        "Recruiter",
         "Comment",
       ];
 
       const rows = data.map((i) => {
         const company = i.company;
         const contact = i.contact;
+        const recruiter = (i as unknown as { recruiter?: { name: string } | null }).recruiter;
         const name = contact
           ? [contact.firstName, contact.lastName].filter(Boolean).join(" ")
           : "";
@@ -53,6 +56,8 @@ export function SettingsClient() {
           i.lastUpdate?.toISOString().slice(0, 10) ?? "",
           i.nextFollowUpDate?.toISOString().slice(0, 10) ?? "",
           i.outcome ?? "",
+          i.sourceType ? sourceTypeToApi(i.sourceType) : "Direct",
+          recruiter?.name ?? "",
           i.comment ?? "",
         ];
       });

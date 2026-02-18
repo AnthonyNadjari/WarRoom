@@ -9,6 +9,7 @@ import {
   getInteractionsWithRelations,
   createInteraction,
   getContactsForCompany,
+  getRecruitersForSelect,
 } from "@/app/actions/interactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ import {
 import type {
   Interaction,
   InteractionStatus,
+  InteractionSourceType,
   Priority,
   InteractionGlobalCategory,
   InteractionType,
@@ -44,12 +46,13 @@ import type {
 import { cn } from "@/lib/utils";
 
 type InteractionRow = Interaction & {
-  company?: { id: string; name: string } | null;
+  company?: { id: string; name: string; website_domain?: string | null; logo_url?: string | null } | null;
   contact?: {
     id: string;
     first_name: string | null;
     last_name: string | null;
   } | null;
+  recruiter?: { id: string; name: string } | null;
 };
 
 const STATUS_OPTIONS: InteractionStatus[] = [
@@ -162,6 +165,9 @@ function NewInteractionDialog({
     new Date().toISOString().slice(0, 10)
   );
   const [comment, setComment] = useState("");
+  const [sourceType, setSourceType] = useState<InteractionSourceType>("Direct");
+  const [recruiterId, setRecruiterId] = useState("");
+  const [recruiters, setRecruiters] = useState<{ id: string; name: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingContacts, setLoadingContacts] = useState(false);
 
@@ -179,9 +185,16 @@ function NewInteractionDialog({
     });
   }, [companyId]);
 
+  useEffect(() => {
+    if (sourceType === "Via Recruiter" && recruiters.length === 0) {
+      getRecruitersForSelect().then(setRecruiters);
+    }
+  }, [sourceType, recruiters.length]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!companyId || !contactId) return;
+    if (sourceType === "Via Recruiter" && !recruiterId) return;
     setSaving(true);
     await createInteraction({
       company_id: companyId,
@@ -193,6 +206,8 @@ function NewInteractionDialog({
       priority: (priority as Priority) || null,
       date_sent: dateSent || null,
       comment: comment || null,
+      source_type: sourceType,
+      recruiter_id: sourceType === "Via Recruiter" ? recruiterId : null,
     });
     setSaving(false);
     onOpenChange(false);
@@ -205,6 +220,8 @@ function NewInteractionDialog({
     setCategory("");
     setDateSent(new Date().toISOString().slice(0, 10));
     setComment("");
+    setSourceType("Direct");
+    setRecruiterId("");
     onCreated();
   }
 
@@ -362,6 +379,43 @@ function NewInteractionDialog({
               placeholder="Notes..."
             />
           </div>
+          <div className={cn("grid gap-4", sourceType === "Via Recruiter" ? "grid-cols-2" : "grid-cols-1")}>
+            <div className="space-y-2">
+              <Label>Source</Label>
+              <Select
+                value={sourceType}
+                onValueChange={(v) => {
+                  setSourceType(v as InteractionSourceType);
+                  if (v === "Direct") setRecruiterId("");
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Direct">Direct</SelectItem>
+                  <SelectItem value="Via Recruiter">Via Recruiter</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {sourceType === "Via Recruiter" && (
+              <div className="space-y-2">
+                <Label>Recruiter *</Label>
+                <Select value={recruiterId} onValueChange={setRecruiterId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select recruiter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {recruiters.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
@@ -370,7 +424,7 @@ function NewInteractionDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving || !companyId || !contactId}>
+            <Button type="submit" disabled={saving || !companyId || !contactId || (sourceType === "Via Recruiter" && !recruiterId)}>
               {saving ? "Creating..." : "Create interaction"}
             </Button>
           </div>
@@ -622,13 +676,24 @@ function InteractionsInner(props: {
                       )}
                     >
                       <td className="px-4 py-3">
-                        <Link
-                          href={"/companies/" + i.company_id}
-                          className="font-medium hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {company?.name ?? "—"}
-                        </Link>
+                        <div className="flex items-center gap-1.5">
+                          <Link
+                            href={"/companies/" + i.company_id}
+                            className="font-medium hover:underline"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {company?.name ?? "—"}
+                          </Link>
+                          {i.source_type === "Via Recruiter" && i.recruiter && (
+                            <Link
+                              href={"/companies/" + i.recruiter.id}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 hover:bg-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:hover:bg-violet-900/60"
+                            >
+                              via {i.recruiter.name}
+                            </Link>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {name}
@@ -694,7 +759,16 @@ function InteractionsInner(props: {
                     <div className="mt-1 text-muted-foreground">
                       {name} · {i.role_title ?? "—"}
                     </div>
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {i.source_type === "Via Recruiter" && i.recruiter && (
+                        <Link
+                          href={"/companies/" + i.recruiter.id}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 hover:bg-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:hover:bg-violet-900/60"
+                        >
+                          via {i.recruiter.name}
+                        </Link>
+                      )}
                       {i.priority && (
                         <div className="flex items-center gap-1">
                           <PriorityDot priority={i.priority} />

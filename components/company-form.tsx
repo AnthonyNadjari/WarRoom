@@ -19,7 +19,9 @@ const COMPANY_TYPES: CompanyType[] = [
   "Bank",
   "Hedge Fund",
   "Asset Manager",
-  "Recruiter Firm",
+  "Private Equity",
+  "Prop Shop",
+  "Recruiter",
   "Other",
 ];
 
@@ -28,6 +30,8 @@ type CompanyEdit = {
   name: string;
   type: CompanyType;
   main_location: string | null;
+  website_domain: string | null;
+  logo_url: string | null;
   notes: string | null;
 };
 
@@ -37,6 +41,8 @@ export function CompanyForm({ company }: { company?: CompanyEdit }) {
   const [name, setName] = useState(company?.name ?? "");
   const [type, setType] = useState<CompanyType>(company?.type ?? "Other");
   const [mainLocation, setMainLocation] = useState(company?.main_location ?? "");
+  const [websiteDomain, setWebsiteDomain] = useState(company?.website_domain ?? "");
+  const [logoUrl, setLogoUrl] = useState(company?.logo_url ?? "");
   const [notes, setNotes] = useState(company?.notes ?? "");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -48,6 +54,8 @@ export function CompanyForm({ company }: { company?: CompanyEdit }) {
           name,
           type,
           main_location: mainLocation || null,
+          website_domain: websiteDomain || null,
+          logo_url: logoUrl || null,
           notes: notes || null,
         });
         router.push("/companies/" + company.id);
@@ -56,6 +64,8 @@ export function CompanyForm({ company }: { company?: CompanyEdit }) {
           name,
           type,
           main_location: mainLocation || null,
+          website_domain: websiteDomain || null,
+          logo_url: logoUrl || null,
           notes: notes || null,
         });
         if (created?.id) router.push("/companies/" + created.id);
@@ -100,6 +110,27 @@ export function CompanyForm({ company }: { company?: CompanyEdit }) {
         />
       </div>
       <div className="space-y-2">
+        <Label htmlFor="websiteDomain">Website domain</Label>
+        <Input
+          id="websiteDomain"
+          value={websiteDomain}
+          onChange={(e) => setWebsiteDomain(e.target.value)}
+          placeholder="e.g. goldmansachs.com"
+        />
+        <p className="text-xs text-muted-foreground">
+          Used for automatic logo. Leave empty to show initials.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="logoUrl">Logo URL (optional override)</Label>
+        <Input
+          id="logoUrl"
+          value={logoUrl}
+          onChange={(e) => setLogoUrl(e.target.value)}
+          placeholder="https://..."
+        />
+      </div>
+      <div className="space-y-2">
         <Label htmlFor="notes">Notes</Label>
         <Input
           id="notes"
@@ -109,7 +140,7 @@ export function CompanyForm({ company }: { company?: CompanyEdit }) {
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save"}
+          {saving ? "Saving..." : "Save"}
         </Button>
         {company && (
           <Button

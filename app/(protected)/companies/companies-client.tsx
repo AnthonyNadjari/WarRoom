@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Plus, Building2, MapPin, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CompanyLogo } from "@/components/company-logo";
 import type { Company } from "@/types/database";
 import { cn } from "@/lib/utils";
 
@@ -12,12 +13,14 @@ const TYPE_COLORS: Record<string, string> = {
   Bank: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
   "Hedge Fund": "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
   "Asset Manager": "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-  "Recruiter Firm": "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  "Private Equity": "bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300",
+  "Prop Shop": "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300",
+  Recruiter: "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
   Other: "bg-muted text-muted-foreground",
 };
 
 export function CompaniesClient(props: {
-  initialCompanies: Pick<Company, "id" | "name" | "type" | "main_location">[];
+  initialCompanies: Pick<Company, "id" | "name" | "type" | "main_location" | "website_domain" | "logo_url">[];
 }) {
   const { initialCompanies } = props;
   const [search, setSearch] = useState("");
@@ -71,20 +74,37 @@ export function CompaniesClient(props: {
                 href={"/companies/" + c.id}
                 className="glass-card group p-4 transition-all hover:shadow-md hover:-translate-y-0.5"
               >
-                <div className="flex items-start justify-between">
-                  <h3 className="font-semibold group-hover:text-primary transition-colors">
-                    {c.name}
-                  </h3>
-                  <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", TYPE_COLORS[c.type] || TYPE_COLORS.Other)}>
-                    {c.type}
-                  </span>
-                </div>
-                {c.main_location && (
-                  <div className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
-                    <MapPin className="h-3 w-3" />
-                    {c.main_location}
+                <div className="flex items-start gap-3">
+                  <CompanyLogo
+                    name={c.name}
+                    logoUrl={c.logo_url}
+                    websiteDomain={c.website_domain}
+                    size={36}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold group-hover:text-primary transition-colors truncate">
+                        {c.name}
+                      </h3>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {c.type === "Recruiter" && (
+                          <span className="rounded-full bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300 px-2 py-0.5 text-[10px] font-semibold">
+                            Headhunter
+                          </span>
+                        )}
+                        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", TYPE_COLORS[c.type] || TYPE_COLORS.Other)}>
+                          {c.type}
+                        </span>
+                      </div>
+                    </div>
+                    {c.main_location && (
+                      <div className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        {c.main_location}
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </Link>
             ))}
           </div>

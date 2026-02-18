@@ -2,7 +2,9 @@ export type CompanyType =
   | "Bank"
   | "Hedge Fund"
   | "Asset Manager"
-  | "Recruiter Firm"
+  | "Private Equity"
+  | "Prop Shop"
+  | "Recruiter"
   | "Other";
 
 export type ContactCategory =
@@ -52,12 +54,16 @@ export type Priority = "Low" | "Medium" | "High";
 
 export type Outcome = "None" | "Rejected" | "Interview" | "Offer";
 
+export type InteractionSourceType = "Direct" | "Via Recruiter";
+
 export interface Company {
   id: string;
   user_id: string;
   name: string;
   type: CompanyType;
   main_location: string | null;
+  website_domain: string | null;
+  logo_url: string | null;
   notes: string | null;
   created_at: string;
 }
@@ -99,10 +105,13 @@ export interface Interaction {
   next_follow_up_date: string | null;
   outcome: Outcome | null;
   comment: string | null;
+  source_type: InteractionSourceType;
+  recruiter_id: string | null;
   created_at: string;
 }
 
 export type InteractionWithRelations = Interaction & {
-  company?: Company | null;
-  contact?: Contact | null;
-}
+  company?: { id: string; name: string; website_domain?: string | null; logo_url?: string | null } | null;
+  contact?: { id: string; first_name: string | null; last_name: string | null } | null;
+  recruiter?: { id: string; name: string } | null;
+};

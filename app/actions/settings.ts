@@ -7,6 +7,7 @@ import type { Interaction } from "@prisma/client";
 type ExportRow = Interaction & {
   company: { name: string } | null;
   contact: { firstName: string | null; lastName: string | null; email: string | null } | null;
+  recruiter: { name: string } | null;
 };
 
 export async function getInteractionsForExport(): Promise<ExportRow[] | null> {
@@ -19,6 +20,7 @@ export async function getInteractionsForExport(): Promise<ExportRow[] | null> {
       contact: {
         select: { firstName: true, lastName: true, email: true },
       },
+      recruiter: { select: { name: true } },
     },
     orderBy: { dateSent: "desc" },
   }) as Promise<ExportRow[]>;

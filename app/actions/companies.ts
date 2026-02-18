@@ -13,14 +13,16 @@ export async function getCompanies() {
   if (!userId) return [];
   const list = await prisma.company.findMany({
     where: { userId },
-    select: { id: true, name: true, type: true, mainLocation: true },
+    select: { id: true, name: true, type: true, mainLocation: true, websiteDomain: true, logoUrl: true },
     orderBy: { name: "asc" },
   });
-  return list.map((c: { id: string; name: string; type: PrismaCompanyType; mainLocation: string | null }) => ({
+  return list.map((c: { id: string; name: string; type: PrismaCompanyType; mainLocation: string | null; websiteDomain: string | null; logoUrl: string | null }) => ({
     id: c.id,
     name: c.name,
     type: companyTypeToApi(c.type) as CompanyType,
     main_location: c.mainLocation,
+    website_domain: c.websiteDomain,
+    logo_url: c.logoUrl,
   }));
 }
 
@@ -30,6 +32,8 @@ export async function getCompanyById(id: string): Promise<{
   name: string;
   type: CompanyType;
   main_location: string | null;
+  website_domain: string | null;
+  logo_url: string | null;
   notes: string | null;
   created_at: string;
 } | null> {
@@ -45,6 +49,8 @@ export async function getCompanyById(id: string): Promise<{
     name: c.name,
     type: companyTypeToApi(c.type) as CompanyType,
     main_location: c.mainLocation,
+    website_domain: c.websiteDomain,
+    logo_url: c.logoUrl,
     notes: c.notes,
     created_at: c.createdAt.toISOString(),
   };
@@ -54,6 +60,8 @@ export async function createCompany(data: {
   name: string;
   type: CompanyType | string;
   main_location: string | null;
+  website_domain: string | null;
+  logo_url: string | null;
   notes: string | null;
 }) {
   const userId = await getCurrentUserId();
@@ -64,6 +72,8 @@ export async function createCompany(data: {
       name: data.name,
       type: companyTypeToPrisma(data.type) as PrismaCompanyType,
       mainLocation: data.main_location,
+      websiteDomain: data.website_domain,
+      logoUrl: data.logo_url,
       notes: data.notes,
     },
     select: { id: true },
@@ -78,6 +88,8 @@ export async function updateCompany(
     name: string;
     type: CompanyType | string;
     main_location: string | null;
+    website_domain: string | null;
+    logo_url: string | null;
     notes: string | null;
   }
 ) {
@@ -89,6 +101,8 @@ export async function updateCompany(
       name: data.name,
       type: companyTypeToPrisma(data.type),
       mainLocation: data.main_location,
+      websiteDomain: data.website_domain,
+      logoUrl: data.logo_url,
       notes: data.notes,
     },
   });

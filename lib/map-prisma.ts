@@ -2,6 +2,7 @@ import type {
   InteractionStatus as PrismaInteractionStatus,
   CompanyType as PrismaCompanyType,
   InteractionType as PrismaInteractionType,
+  InteractionSourceType as PrismaInteractionSourceType,
 } from "@prisma/client";
 
 export function interactionStatusToApi(
@@ -21,7 +22,9 @@ export function interactionStatusFromApi(
 const COMPANY_TYPE_API_TO_PRISMA: Record<string, PrismaCompanyType> = {
   "Hedge Fund": "HedgeFund",
   "Asset Manager": "AssetManager",
-  "Recruiter Firm": "RecruiterFirm",
+  "Private Equity": "PrivateEquity",
+  "Prop Shop": "PropShop",
+  Recruiter: "Recruiter",
   Bank: "Bank",
   Other: "Other",
 };
@@ -36,7 +39,9 @@ const COMPANY_TYPE_PRISMA_TO_API: Record<PrismaCompanyType, string> = {
   Bank: "Bank",
   HedgeFund: "Hedge Fund",
   AssetManager: "Asset Manager",
-  RecruiterFirm: "Recruiter Firm",
+  PrivateEquity: "Private Equity",
+  PropShop: "Prop Shop",
+  Recruiter: "Recruiter",
   Other: "Other",
 };
 
@@ -68,4 +73,22 @@ export function interactionTypeFromApi(
   type: string
 ): PrismaInteractionType {
   return (INTERACTION_TYPE_API_TO_PRISMA[type] ?? type) as PrismaInteractionType;
+}
+
+const SOURCE_TYPE_PRISMA_TO_API: Record<PrismaInteractionSourceType, string> = {
+  Direct: "Direct",
+  ViaRecruiter: "Via Recruiter",
+};
+
+const SOURCE_TYPE_API_TO_PRISMA: Record<string, PrismaInteractionSourceType> = {
+  Direct: "Direct",
+  "Via Recruiter": "ViaRecruiter",
+};
+
+export function sourceTypeToApi(type: PrismaInteractionSourceType): string {
+  return SOURCE_TYPE_PRISMA_TO_API[type] ?? type;
+}
+
+export function sourceTypeFromApi(type: string): PrismaInteractionSourceType {
+  return (SOURCE_TYPE_API_TO_PRISMA[type] ?? type) as PrismaInteractionSourceType;
 }

@@ -9,19 +9,29 @@ import {
   interactionStatusFromApi,
   interactionTypeToApi,
   interactionTypeFromApi,
+  sourceTypeToApi,
+  sourceTypeFromApi,
 } from "@/lib/map-prisma";
 import type {
   InteractionGlobalCategory,
   Priority,
   Outcome,
+  Interaction as PrismaInteraction,
 } from "@prisma/client";
 import type {
   InteractionWithRelations,
   InteractionType,
   InteractionStatus,
+  InteractionSourceType,
 } from "@/types/database";
 
-function mapInteraction(i: Awaited<ReturnType<typeof prisma.interaction.findMany>>[number] & { company?: { id: string; name: string } | null; contact?: { id: string; firstName: string | null; lastName: string | null } | null }) {
+type InteractionWithIncludes = PrismaInteraction & {
+  company?: { id: string; name: string; websiteDomain: string | null; logoUrl: string | null } | null;
+  contact?: { id: string; firstName: string | null; lastName: string | null } | null;
+  recruiter?: { id: string; name: string } | null;
+};
+
+function mapInteraction(i: InteractionWithIncludes) {
   return {
     id: i.id,
     user_id: i.userId,
@@ -37,8 +47,17 @@ function mapInteraction(i: Awaited<ReturnType<typeof prisma.interaction.findMany
     next_follow_up_date: i.nextFollowUpDate?.toISOString().slice(0, 10) ?? null,
     outcome: i.outcome,
     comment: i.comment,
+    source_type: sourceTypeToApi(i.sourceType),
+    recruiter_id: i.recruiterId,
     created_at: i.createdAt.toISOString(),
-    company: i.company,
+    company: i.company
+      ? {
+          id: i.company.id,
+          name: i.company.name,
+          website_domain: i.company.websiteDomain,
+          logo_url: i.company.logoUrl,
+        }
+      : null,
     contact: i.contact
       ? {
           id: i.contact.id,
@@ -46,23 +65,27 @@ function mapInteraction(i: Awaited<ReturnType<typeof prisma.interaction.findMany
           last_name: i.contact.lastName,
         }
       : null,
+    recruiter: i.recruiter
+      ? { id: i.recruiter.id, name: i.recruiter.name }
+      : null,
   };
 }
+
+const INTERACTION_INCLUDES = {
+  company: { select: { id: true, name: true, websiteDomain: true, logoUrl: true } },
+  contact: { select: { id: true, firstName: true, lastName: true } },
+  recruiter: { select: { id: true, name: true } },
+} as const;
 
 export async function getInteractionsWithRelations(): Promise<InteractionWithRelations[]> {
   const userId = await getCurrentUserId();
   if (!userId) return [];
   const list = await prisma.interaction.findMany({
     where: { userId },
-    include: {
-      company: { select: { id: true, name: true } },
-      contact: {
-        select: { id: true, firstName: true, lastName: true },
-      },
-    },
+    include: INTERACTION_INCLUDES,
     orderBy: { dateSent: "desc" },
   });
-  return list.map(mapInteraction) as InteractionWithRelations[];
+  return list.map((i) => mapInteraction(i as InteractionWithIncludes)) as InteractionWithRelations[];
 }
 
 export async function getInteractionsForDashboard(): Promise<InteractionWithRelations[]> {
@@ -70,15 +93,10 @@ export async function getInteractionsForDashboard(): Promise<InteractionWithRela
   if (!userId) return [];
   const list = await prisma.interaction.findMany({
     where: { userId },
-    include: {
-      company: { select: { id: true, name: true } },
-      contact: {
-        select: { id: true, firstName: true, lastName: true },
-      },
-    },
+    include: INTERACTION_INCLUDES,
     orderBy: { dateSent: "desc" },
   });
-  return list.map(mapInteraction) as InteractionWithRelations[];
+  return list.map((i) => mapInteraction(i as InteractionWithIncludes)) as InteractionWithRelations[];
 }
 
 export async function getCompaniesForSelect() {
@@ -89,6 +107,53 @@ export async function getCompaniesForSelect() {
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
+}
+
+export async function getRecruitersForSelect() {
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
+  return prisma.company.findMany({
+    where: { userId, type: "Recruiter" },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function getRecruiterStats(recruiterId: string) {
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+
+  const interactions = await prisma.interaction.findMany({
+    where: { userId, recruiterId },
+    select: { status: true, outcome: true },
+  });
+
+  const total = interactions.length;
+  let interviews = 0;
+  let offers = 0;
+  let rejections = 0;
+  let active = 0;
+
+  for (const i of interactions) {
+    if (i.status === "Interview" || i.outcome === "Interview") interviews++;
+    if (i.status === "Offer" || i.outcome === "Offer") offers++;
+    if (i.status === "Rejected" || i.outcome === "Rejected") rejections++;
+    if (
+      i.status !== "Rejected" &&
+      i.status !== "Closed" &&
+      i.outcome !== "Rejected"
+    )
+      active++;
+  }
+
+  return {
+    total,
+    interviews,
+    offers,
+    rejections,
+    active,
+    conversionRate: total > 0 ? Math.round((interviews / total) * 100) : 0,
+  };
 }
 
 export async function updateInteraction(
@@ -104,14 +169,38 @@ export async function updateInteraction(
     next_follow_up_date?: Date | string | null;
     outcome?: Outcome | null;
     comment?: string | null;
+    source_type?: InteractionSourceType | string;
+    recruiter_id?: string | null;
   }
 ) {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/login");
+
+  // Validate recruiter if provided
+  if (data.source_type != null) {
+    const prismaSourceType = sourceTypeFromApi(String(data.source_type));
+    if (prismaSourceType === "ViaRecruiter" && !data.recruiter_id) {
+      throw new Error("Recruiter is required when source is Via Recruiter");
+    }
+  }
+
+  if (data.recruiter_id) {
+    const recruiter = await prisma.company.findFirst({
+      where: { id: data.recruiter_id, userId },
+      select: { type: true },
+    });
+    if (!recruiter || recruiter.type !== "Recruiter") {
+      throw new Error("Invalid recruiter: must be a company with type Recruiter");
+    }
+  }
+
   const status =
     data.status != null ? interactionStatusFromApi(String(data.status)) : undefined;
   const type =
     data.type != null ? interactionTypeFromApi(String(data.type)) : undefined;
+  const sourceType =
+    data.source_type != null ? sourceTypeFromApi(String(data.source_type)) : undefined;
+
   await prisma.interaction.updateMany({
     where: { id, userId },
     data: {
@@ -127,6 +216,8 @@ export async function updateInteraction(
         : undefined,
       outcome: data.outcome,
       comment: data.comment,
+      sourceType,
+      recruiterId: data.recruiter_id,
     },
   });
   revalidatePath("/interactions");
@@ -143,9 +234,30 @@ export async function createInteraction(data: {
   priority?: Priority | null;
   date_sent?: Date | string | null;
   comment?: string | null;
+  source_type?: InteractionSourceType | string;
+  recruiter_id?: string | null;
 }) {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/login");
+
+  // Validate recruiter
+  const prismaSourceType = data.source_type
+    ? sourceTypeFromApi(String(data.source_type))
+    : "Direct";
+
+  if (prismaSourceType === "ViaRecruiter" && !data.recruiter_id) {
+    throw new Error("Recruiter is required when source is Via Recruiter");
+  }
+
+  if (data.recruiter_id) {
+    const recruiter = await prisma.company.findFirst({
+      where: { id: data.recruiter_id, userId },
+      select: { type: true },
+    });
+    if (!recruiter || recruiter.type !== "Recruiter") {
+      throw new Error("Invalid recruiter: must be a company with type Recruiter");
+    }
+  }
 
   const status = data.status
     ? interactionStatusFromApi(String(data.status))
@@ -166,6 +278,8 @@ export async function createInteraction(data: {
       priority: data.priority ?? null,
       dateSent: data.date_sent ? new Date(data.date_sent) : null,
       comment: data.comment ?? null,
+      sourceType: prismaSourceType,
+      recruiterId: data.recruiter_id ?? null,
     },
   });
 
