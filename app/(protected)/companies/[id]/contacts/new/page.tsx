@@ -23,7 +23,7 @@ export default async function NewContactPage(props: {
     where: { companyId, userId },
     select: { id: true, firstName: true, lastName: true },
   });
-  const managerOptions = contacts.map((c) => ({
+  const managerOptions = contacts.map((c: { id: string; firstName: string | null; lastName: string | null }) => ({
     id: c.id,
     name: [c.firstName, c.lastName].filter(Boolean).join(" ") || "—",
   }));
