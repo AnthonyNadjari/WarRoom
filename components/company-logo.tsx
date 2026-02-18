@@ -25,10 +25,11 @@ export function CompanyLogo({
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
 
+  // Priority: custom logoUrl → unavatar.io (aggregates Google, DuckDuckGo, etc.) → initials
   const src = logoUrl
     ? logoUrl
     : websiteDomain
-      ? `https://logo.clearbit.com/${websiteDomain}`
+      ? `https://unavatar.io/${websiteDomain}?fallback=false`
       : null;
 
   const showImage = src && !imgError;
@@ -40,7 +41,6 @@ export function CompanyLogo({
       className={cn("shrink-0 rounded-lg relative overflow-hidden", className)}
       style={{ width: size, height: size }}
     >
-      {/* Initials fallback — always behind, hidden once image loads */}
       {showInitials && (
         <div
           className="absolute inset-0 flex items-center justify-center rounded-lg bg-primary/10 font-semibold text-primary"
@@ -50,7 +50,6 @@ export function CompanyLogo({
         </div>
       )}
 
-      {/* Image — when loaded, fully covers the container */}
       {showImage && (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img
@@ -59,7 +58,7 @@ export function CompanyLogo({
           width={size}
           height={size}
           className={cn(
-            "absolute inset-0 h-full w-full rounded-lg bg-white object-contain",
+            "absolute inset-0 h-full w-full rounded-lg bg-white object-contain p-0.5",
             loaded ? "opacity-100" : "opacity-0"
           )}
           onLoad={() => setLoaded(true)}
