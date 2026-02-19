@@ -90,7 +90,7 @@ function NewProcessDialog({
         company_id: companyId,
         role_title: roleTitle.trim(),
         location: location.trim() || null,
-        source_process_id: sourceProcessId || null,
+        source_process_id: sourceProcessId && sourceProcessId !== "none" ? sourceProcessId : null,
       });
       onOpenChange(false);
       router.push(`/processes/${id}`);
@@ -214,14 +214,14 @@ export function ProcessesClient({
   return (
     <div className="flex-1 p-5 md:p-8">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Processes</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Track recruitment pipelines from application to offer
             </p>
           </div>
-          <Button onClick={() => setDialogOpen(true)}>
+          <Button onClick={() => setDialogOpen(true)} className="self-start sm:self-auto">
             <Plus className="h-4 w-4" />
             New Process
           </Button>
@@ -251,12 +251,12 @@ export function ProcessesClient({
               </button>
             );
           })}
-          <div className="ml-auto">
+          <div className="ml-auto w-full sm:w-auto">
             <Input
               placeholder="Search processes..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 w-48 text-sm"
+              className="h-8 w-full sm:w-48 text-sm"
             />
           </div>
         </div>

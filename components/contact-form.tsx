@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2, Linkedin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import type { Contact, ContactCategory, Seniority } from "@/types/database";
 import { createContact, updateContact } from "@/app/actions/contacts";
+import { parseLinkedInProfile } from "@/app/actions/linkedin";
 
 const CATEGORY_OPTIONS: ContactCategory[] = [
   "Sales",
@@ -61,6 +63,32 @@ export function ContactForm(props: {
   const [managerId, setManagerId] = useState(contact?.manager_id ?? "");
   const [notes, setNotes] = useState(contact?.notes ?? "");
 
+  // LinkedIn autofill
+  const [autofilling, setAutofilling] = useState(false);
+  const [autofillError, setAutofillError] = useState("");
+
+  async function handleAutofill() {
+    if (!linkedinUrl.trim()) return;
+    setAutofilling(true);
+    setAutofillError("");
+    try {
+      const result = await parseLinkedInProfile(linkedinUrl);
+      if (!result.ok) {
+        setAutofillError(result.error);
+        return;
+      }
+      const { profile } = result;
+      // Only fill empty fields — don't overwrite user input
+      if (!firstName && profile.firstName) setFirstName(profile.firstName);
+      if (!lastName && profile.lastName) setLastName(profile.lastName);
+      if (!exactTitle && profile.exactTitle) setExactTitle(profile.exactTitle);
+    } catch {
+      setAutofillError("Could not parse profile. Please fill manually.");
+    } finally {
+      setAutofilling(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -94,6 +122,42 @@ export function ContactForm(props: {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-md space-y-4">
+      {/* LinkedIn autofill section */}
+      <div className="space-y-2">
+        <Label>LinkedIn URL</Label>
+        <div className="flex gap-2">
+          <Input
+            value={linkedinUrl}
+            onChange={(e) => {
+              setLinkedinUrl(e.target.value);
+              setAutofillError("");
+            }}
+            placeholder="https://linkedin.com/in/janedoe"
+            className="flex-1"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={autofilling || !linkedinUrl.trim()}
+            onClick={handleAutofill}
+            className="shrink-0 gap-1.5"
+          >
+            {autofilling ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Linkedin className="h-3.5 w-3.5" />
+            )}
+            {autofilling ? "Fetching…" : "Autofill"}
+          </Button>
+        </div>
+        {autofillError && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            {autofillError}
+          </p>
+        )}
+      </div>
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>First name</Label>
@@ -172,13 +236,6 @@ export function ContactForm(props: {
         <Input
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>LinkedIn URL</Label>
-        <Input
-          value={linkedinUrl}
-          onChange={(e) => setLinkedinUrl(e.target.value)}
         />
       </div>
       {managerOptions.length > 0 && (

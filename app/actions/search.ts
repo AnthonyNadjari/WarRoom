@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/session";
 
 export type SearchHit = {
-  type: "company" | "contact" | "interaction";
+  type: "company" | "contact" | "interaction" | "process";
   id: string;
   href: string;
   title: string;
@@ -17,7 +17,7 @@ export async function searchAll(query: string): Promise<SearchHit[]> {
   const q = query.trim().toLowerCase();
   const hits: SearchHit[] = [];
 
-  const [companies, contacts, interactions] = await Promise.all([
+  const [companies, contacts, interactions, processes] = await Promise.all([
     prisma.company.findMany({
       where: { userId, name: { contains: q, mode: "insensitive" } },
       select: { id: true, name: true },
@@ -51,6 +51,22 @@ export async function searchAll(query: string): Promise<SearchHit[]> {
       select: { id: true, roleTitle: true },
       take: 5,
     }),
+    prisma.process.findMany({
+      where: {
+        userId,
+        OR: [
+          { roleTitle: { contains: q, mode: "insensitive" } },
+          { location: { contains: q, mode: "insensitive" } },
+          { company: { name: { contains: q, mode: "insensitive" } } },
+        ],
+      },
+      select: {
+        id: true,
+        roleTitle: true,
+        company: { select: { name: true } },
+      },
+      take: 5,
+    }),
   ]);
 
   companies.forEach((c) => {
@@ -79,6 +95,15 @@ export async function searchAll(query: string): Promise<SearchHit[]> {
       href: `/interactions?highlight=${i.id}`,
       title: i.roleTitle || "Interaction",
       subtitle: "Interaction",
+    });
+  });
+  processes.forEach((p) => {
+    hits.push({
+      type: "process",
+      id: p.id,
+      href: `/processes/${p.id}`,
+      title: p.roleTitle,
+      subtitle: p.company?.name ? `Process — ${p.company.name}` : "Process",
     });
   });
 

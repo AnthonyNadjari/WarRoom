@@ -48,7 +48,7 @@ export default async function ProcessDetailPage({
           company: { select: { id: true, name: true, websiteDomain: true, logoUrl: true } },
           recruiter: { select: { id: true, name: true } },
         },
-        orderBy: { dateSent: "desc" },
+        orderBy: { dateSent: "asc" },
       },
       _count: { select: { interactions: true } },
     },

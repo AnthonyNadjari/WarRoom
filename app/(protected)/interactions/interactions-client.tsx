@@ -53,6 +53,7 @@ type InteractionRow = Interaction & {
     last_name: string | null;
   } | null;
   recruiter?: { id: string; name: string } | null;
+  process?: { id: string; role_title: string; status: string } | null;
 };
 
 type ProcessSelect = {
@@ -161,9 +162,10 @@ function NewInteractionDialog({
   const [companyId, setCompanyId] = useState("");
   const [contactId, setContactId] = useState("");
   const [contacts, setContacts] = useState<
-    { id: string; firstName: string | null; lastName: string | null }[]
+    { id: string; firstName: string | null; lastName: string | null; exactTitle: string | null }[]
   >([]);
   const [roleTitle, setRoleTitle] = useState("");
+  const [roleTitleManual, setRoleTitleManual] = useState(false);
   const [type, setType] = useState<InteractionType | "">("");
   const [status, setStatus] = useState<InteractionStatus>("Sent");
   const [priority, setPriority] = useState<Priority | "">("");
@@ -191,6 +193,15 @@ function NewInteractionDialog({
       setLoadingContacts(false);
     });
   }, [companyId]);
+
+  // Autofill roleTitle from contact's exactTitle
+  useEffect(() => {
+    if (!contactId || roleTitleManual) return;
+    const contact = contacts.find((c) => c.id === contactId);
+    if (contact?.exactTitle) {
+      setRoleTitle(contact.exactTitle);
+    }
+  }, [contactId, contacts, roleTitleManual]);
 
   useEffect(() => {
     if (sourceType === "Via Recruiter" && recruiters.length === 0) {
@@ -221,6 +232,7 @@ function NewInteractionDialog({
     setCompanyId("");
     setContactId("");
     setRoleTitle("");
+    setRoleTitleManual(false);
     setType("");
     setStatus("Sent");
     setPriority("");
@@ -310,7 +322,10 @@ function NewInteractionDialog({
             <Label>Role title</Label>
             <Input
               value={roleTitle}
-              onChange={(e) => setRoleTitle(e.target.value)}
+              onChange={(e) => {
+                setRoleTitle(e.target.value);
+                setRoleTitleManual(true);
+              }}
               placeholder="e.g. Analyst — S&T"
             />
           </div>
@@ -756,7 +771,18 @@ function InteractionsInner(props: {
                         {name}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {i.role_title ?? "—"}
+                        <div className="flex items-center gap-1.5">
+                          {i.role_title ?? "—"}
+                          {i.process && (
+                            <Link
+                              href={`/processes/${i.process.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
+                            >
+                              {i.process.role_title}
+                            </Link>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <StatusBadge status={i.status} />
@@ -817,6 +843,15 @@ function InteractionsInner(props: {
                       {name} · {i.role_title ?? "—"}
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {i.process && (
+                        <Link
+                          href={`/processes/${i.process.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
+                        >
+                          {i.process.role_title}
+                        </Link>
+                      )}
                       {i.source_type === "Via Recruiter" && i.recruiter && (
                         <Link
                           href={"/companies/" + i.recruiter.id}

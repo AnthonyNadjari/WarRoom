@@ -306,7 +306,7 @@ export async function getContactsForCompany(companyId: string) {
   if (!userId) return [];
   return prisma.contact.findMany({
     where: { companyId, userId },
-    select: { id: true, firstName: true, lastName: true },
+    select: { id: true, firstName: true, lastName: true, exactTitle: true },
     orderBy: { lastName: "asc" },
   });
 }

@@ -61,7 +61,7 @@ function InteractionRow({
   const contact = i.contact as { first_name?: string; last_name?: string } | null;
   const name = contact
     ? [contact.first_name, contact.last_name].filter(Boolean).join(" ")
-    : "\u2014";
+    : "—";
 
   return (
     <Link
@@ -88,8 +88,8 @@ function InteractionRow({
         />
       )}
       <div className="min-w-0 flex-1">
-        <span className="font-medium">{company?.name ?? "\u2014"}</span>
-        <span className="text-muted-foreground"> \u00B7 {name}</span>
+        <span className="font-medium">{company?.name ?? "—"}</span>
+        <span className="text-muted-foreground"> · {name}</span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {i.source_type === "Via Recruiter" && i.recruiter && (
@@ -98,7 +98,7 @@ function InteractionRow({
           </span>
         )}
         <span className="text-xs text-muted-foreground">
-          {i.date_sent ? formatDate(i.date_sent) : "\u2014"}
+          {i.date_sent ? formatDate(i.date_sent) : "—"}
         </span>
         <span className={cn(
           "rounded-full px-2 py-0.5 text-[10px] font-semibold",
@@ -356,7 +356,7 @@ export function DashboardClient({
             icon={AlertTriangle}
             items={red}
             severity="red"
-            emptyMessage="All caught up \u2014 no overdue follow-ups"
+            emptyMessage="All caught up — no overdue follow-ups"
             accent="bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400"
           />
           <SectionBlock
@@ -378,7 +378,7 @@ export function DashboardClient({
             title="Recently sent"
             icon={Send}
             items={recent}
-            emptyMessage="No interactions yet \u2014 add your first one"
+            emptyMessage="No interactions yet — add your first one"
             accent="bg-muted"
           />
         </div>

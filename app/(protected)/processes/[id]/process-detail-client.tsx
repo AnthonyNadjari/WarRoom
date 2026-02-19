@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -84,7 +84,7 @@ type ProcessSelect = {
 };
 
 type CompanySelect = { id: string; name: string };
-type ContactSelect = { id: string; firstName: string | null; lastName: string | null };
+type ContactSelect = { id: string; firstName: string | null; lastName: string | null; exactTitle?: string | null };
 
 const INTERACTION_TYPES: InteractionType[] = [
   "Official Application",
@@ -118,9 +118,19 @@ function AddInteractionDialog({
   const router = useRouter();
   const [contactId, setContactId] = useState("");
   const [roleTitle, setRoleTitle] = useState("");
+  const [roleTitleManual, setRoleTitleManual] = useState(false);
   const [type, setType] = useState("");
   const [category, setCategory] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Autofill roleTitle from contact's exactTitle
+  useEffect(() => {
+    if (!contactId || roleTitleManual) return;
+    const contact = contacts.find((c) => c.id === contactId);
+    if (contact?.exactTitle) {
+      setRoleTitle(contact.exactTitle);
+    }
+  }, [contactId, contacts, roleTitleManual]);
 
   const handleSubmit = async () => {
     if (!contactId) return;
@@ -181,7 +191,10 @@ function AddInteractionDialog({
             <Input
               placeholder="e.g. Quant Analyst"
               value={roleTitle}
-              onChange={(e) => setRoleTitle(e.target.value)}
+              onChange={(e) => {
+                setRoleTitle(e.target.value);
+                setRoleTitleManual(true);
+              }}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -263,45 +276,48 @@ export function ProcessDetailClient({
     <div className="flex-1 p-5 md:p-8">
       <div className="mx-auto max-w-4xl space-y-6">
         {/* Header */}
-        <div className="flex items-start gap-3">
-          <Button variant="ghost" size="icon" asChild className="mt-1">
-            <Link href="/processes">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          {process.company && (
-            <CompanyLogo
-              name={process.company.name}
-              logoUrl={process.company.logo_url}
-              websiteDomain={process.company.website_domain}
-              size={44}
-              className="mt-0.5 shrink-0"
-            />
-          )}
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-semibold tracking-tight">{process.role_title}</h1>
-            <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              {process.company && (
-                <Link
-                  href={`/companies/${process.company.id}`}
-                  className="flex items-center gap-1 hover:text-foreground transition-colors"
-                >
-                  <Building2 className="h-3.5 w-3.5" />
-                  {process.company.name}
-                </Link>
-              )}
-              {process.location && (
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" />
-                  {process.location}
-                </span>
-              )}
-              <span>Created {formatDate(process.created_at)}</span>
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <Button variant="ghost" size="icon" asChild className="mt-1 shrink-0">
+              <Link href="/processes">
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            </Button>
+            {process.company && (
+              <CompanyLogo
+                name={process.company.name}
+                logoUrl={process.company.logo_url}
+                websiteDomain={process.company.website_domain}
+                size={44}
+                className="mt-0.5 shrink-0 hidden sm:block"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl font-semibold tracking-tight">{process.role_title}</h1>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                {process.company && (
+                  <Link
+                    href={`/companies/${process.company.id}`}
+                    className="flex items-center gap-1 hover:text-foreground transition-colors"
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    {process.company.name}
+                  </Link>
+                )}
+                {process.location && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {process.location}
+                  </span>
+                )}
+                <span className="hidden sm:inline">Created {formatDate(process.created_at)}</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Actions row — stacks below on mobile */}
+          <div className="flex items-center gap-2 pl-11 sm:pl-0 sm:justify-end">
             <Select value={status} onValueChange={handleStatusChange}>
-              <SelectTrigger className="w-36">
+              <SelectTrigger className="w-32 sm:w-36">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -438,7 +454,7 @@ export function ProcessDetailClient({
                             <span className="text-muted-foreground"> · {i.type}</span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
                           {i.source_type === "Via Recruiter" && i.recruiter && (
                             <span className="hidden sm:inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
                               via {i.recruiter.name}

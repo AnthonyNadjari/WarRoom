@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { useSearchContext } from "./search-context";
 import { searchAll, type SearchHit } from "@/app/actions/search";
 import Link from "next/link";
-import { Building2, User, Briefcase } from "lucide-react";
+import { Building2, User, Briefcase, FolderKanban } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function SearchDialog() {
@@ -57,7 +57,7 @@ export function SearchDialog() {
         <DialogHeader className="border-b px-4 py-3">
           <DialogTitle className="sr-only">Search</DialogTitle>
           <Input
-            placeholder="Search companies, contacts, roles, email…"
+            placeholder="Search companies, contacts, processes, roles…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="border-0 shadow-none focus-visible:ring-0"
@@ -94,6 +94,9 @@ export function SearchDialog() {
                     )}
                     {r.type === "interaction" && (
                       <Briefcase className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    {r.type === "process" && (
+                      <FolderKanban className="h-4 w-4 text-muted-foreground" />
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{r.title}</div>

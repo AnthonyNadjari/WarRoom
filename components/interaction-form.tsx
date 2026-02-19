@@ -305,7 +305,7 @@ export function InteractionForm(props: {
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving\u2026" : "Save"}
+          {saving ? "Saving…" : "Save"}
         </Button>
         {onClose && (
           <Button type="button" variant="outline" onClick={onClose}>
