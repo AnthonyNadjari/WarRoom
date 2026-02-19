@@ -4,11 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, TrendingUp, Briefcase, XCircle, CheckCircle, Activity, Target } from "lucide-react";
+import { ArrowLeft, Plus, TrendingUp, Briefcase, XCircle, CheckCircle, Activity, Target, FolderKanban, MapPin } from "lucide-react";
 import { CompanyActions } from "./company-actions";
 import { CompanyLogo } from "@/components/company-logo";
 import { getRecruiterStats } from "@/app/actions/interactions";
-import type { Company, Contact, Interaction } from "@/types/database";
+import type { Company, Contact, Interaction, ProcessWithRelations, ProcessStatus } from "@/types/database";
 import { getFollowUpSeverity } from "@/lib/follow-up";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -202,16 +202,66 @@ function RecruiterPerformance({ companyId }: { companyId: string }) {
   );
 }
 
+const PROCESS_STATUS_COLORS: Record<string, string> = {
+  Active: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
+  Interviewing: "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+  Offer: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
+  Rejected: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+  Closed: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+};
+
+function ProcessCard({ process }: { process: ProcessWithRelations }) {
+  return (
+    <Link
+      href={`/processes/${process.id}`}
+      className="flex items-center justify-between rounded-md border px-3 py-2.5 text-sm transition-colors hover:bg-accent/50"
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <FolderKanban className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="font-medium truncate">{process.role_title}</span>
+        </div>
+        <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+          {process.location && (
+            <span className="flex items-center gap-0.5">
+              <MapPin className="h-3 w-3" />
+              {process.location}
+            </span>
+          )}
+          {process._count && (
+            <span>{process._count.interactions} interaction{process._count.interactions !== 1 ? "s" : ""}</span>
+          )}
+          {process.sourceProcess && (
+            <span className="text-violet-600 dark:text-violet-400">
+              via {process.sourceProcess.company?.name ?? process.sourceProcess.role_title}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0 ml-2">
+        <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", PROCESS_STATUS_COLORS[process.status] ?? "bg-muted text-muted-foreground")}>
+          {process.status}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {formatDate(process.updated_at)}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
 export function CompanyDetailClient({
   company,
   contacts,
   interactions,
+  processes,
   defaultTab,
 }: {
   company: Company;
   contacts: Contact[];
   interactions: InteractionWithContact[];
-  defaultTab: "interactions" | "people" | "performance";
+  processes: ProcessWithRelations[];
+  defaultTab: "interactions" | "people" | "processes" | "performance";
 }) {
   const isRecruiter = company.type === "Recruiter";
   const [tab, setTab] = useState(defaultTab === "performance" && !isRecruiter ? "interactions" : defaultTab);
@@ -249,6 +299,7 @@ export function CompanyDetailClient({
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
         <TabsList>
           <TabsTrigger value="interactions">Interactions</TabsTrigger>
+          <TabsTrigger value="processes">Processes</TabsTrigger>
           <TabsTrigger value="people">People</TabsTrigger>
           {isRecruiter && (
             <TabsTrigger value="performance">Performance</TabsTrigger>
@@ -286,6 +337,29 @@ export function CompanyDetailClient({
                   </li>
                 );
               })}
+            </ul>
+          )}
+        </TabsContent>
+        <TabsContent value="processes" className="mt-4">
+          <div className="mb-2 flex justify-end">
+            <Button size="sm" asChild>
+              <Link href={`/processes?new=true&company=${company.id}`}>
+                <Plus className="h-4 w-4" />
+                New process
+              </Link>
+            </Button>
+          </div>
+          {processes.length === 0 ? (
+            <p className="rounded-md border border-dashed px-3 py-4 text-center text-sm text-muted-foreground">
+              No processes yet.
+            </p>
+          ) : (
+            <ul className="space-y-1">
+              {processes.map((p) => (
+                <li key={p.id}>
+                  <ProcessCard process={p} />
+                </li>
+              ))}
             </ul>
           )}
         </TabsContent>

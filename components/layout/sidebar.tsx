@@ -7,6 +7,7 @@ import {
   Building2,
   Users,
   MessageSquare,
+  FolderKanban,
   Settings,
   Crosshair,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const nav = [
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/interactions", label: "Interactions", icon: MessageSquare },
+  { href: "/processes", label: "Processes", icon: FolderKanban },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

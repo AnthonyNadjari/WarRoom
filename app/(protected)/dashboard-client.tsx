@@ -11,10 +11,13 @@ import {
   Building2,
   MessageSquare,
   Users,
+  FolderKanban,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { getFollowUpSeverity } from "@/lib/follow-up";
 import { CompanyLogo } from "@/components/company-logo";
-import type { InteractionWithRelations } from "@/types/database";
+import type { InteractionWithRelations, ProcessWithRelations } from "@/types/database";
 import { cn, formatDate } from "@/lib/utils";
 
 function StatCard({
@@ -250,8 +253,10 @@ function RecruiterOverview({ interactions }: { interactions: InteractionWithRela
 
 export function DashboardClient({
   initialInteractions,
+  initialProcesses,
 }: {
   initialInteractions: InteractionWithRelations[];
+  initialProcesses: ProcessWithRelations[];
 }) {
   const red: InteractionWithRelations[] = [];
   const orange: InteractionWithRelations[] = [];
@@ -270,6 +275,12 @@ export function DashboardClient({
     recent.push(initialInteractions[idx]);
   }
 
+  // Process pipeline counts
+  const processCounts: Record<string, number> = {};
+  for (const p of initialProcesses) {
+    processCounts[p.status] = (processCounts[p.status] || 0) + 1;
+  }
+
   return (
     <div className="flex-1 p-5 md:p-8">
       <div className="mx-auto max-w-6xl space-y-8">
@@ -278,6 +289,35 @@ export function DashboardClient({
           <p className="mt-1 text-sm text-muted-foreground">
             Track your applications, follow-ups, and interviews
           </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Active processes"
+            value={(processCounts["Active"] ?? 0) + (processCounts["Interviewing"] ?? 0)}
+            icon={FolderKanban}
+            color="bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
+            href="/processes"
+          />
+          <StatCard
+            label="Interviewing"
+            value={processCounts["Interviewing"] ?? 0}
+            icon={Briefcase}
+            color="bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400"
+            href="/processes"
+          />
+          <StatCard
+            label="Offers"
+            value={processCounts["Offer"] ?? 0}
+            icon={CheckCircle}
+            color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400"
+          />
+          <StatCard
+            label="Rejected"
+            value={processCounts["Rejected"] ?? 0}
+            icon={XCircle}
+            color="bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400"
+          />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

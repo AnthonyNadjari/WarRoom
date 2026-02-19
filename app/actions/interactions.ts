@@ -29,6 +29,7 @@ type InteractionWithIncludes = PrismaInteraction & {
   company?: { id: string; name: string; websiteDomain: string | null; logoUrl: string | null } | null;
   contact?: { id: string; firstName: string | null; lastName: string | null } | null;
   recruiter?: { id: string; name: string } | null;
+  process?: { id: string; roleTitle: string; status: import("@prisma/client").ProcessStatus } | null;
 };
 
 function mapInteraction(i: InteractionWithIncludes) {
@@ -49,6 +50,7 @@ function mapInteraction(i: InteractionWithIncludes) {
     comment: i.comment,
     source_type: sourceTypeToApi(i.sourceType),
     recruiter_id: i.recruiterId,
+    process_id: i.processId,
     created_at: i.createdAt.toISOString(),
     company: i.company
       ? {
@@ -68,6 +70,9 @@ function mapInteraction(i: InteractionWithIncludes) {
     recruiter: i.recruiter
       ? { id: i.recruiter.id, name: i.recruiter.name }
       : null,
+    process: i.process
+      ? { id: i.process.id, role_title: i.process.roleTitle, status: i.process.status }
+      : null,
   };
 }
 
@@ -75,6 +80,7 @@ const INTERACTION_INCLUDES = {
   company: { select: { id: true, name: true, websiteDomain: true, logoUrl: true } },
   contact: { select: { id: true, firstName: true, lastName: true } },
   recruiter: { select: { id: true, name: true } },
+  process: { select: { id: true, roleTitle: true, status: true } },
 } as const;
 
 export async function getInteractionsWithRelations(): Promise<InteractionWithRelations[]> {
@@ -171,6 +177,7 @@ export async function updateInteraction(
     comment?: string | null;
     source_type?: InteractionSourceType | string;
     recruiter_id?: string | null;
+    process_id?: string | null;
   }
 ) {
   const userId = await getCurrentUserId();
@@ -218,10 +225,12 @@ export async function updateInteraction(
       comment: data.comment,
       sourceType,
       recruiterId: data.recruiter_id,
+      processId: data.process_id,
     },
   });
   revalidatePath("/interactions");
   revalidatePath("/");
+  if (data.process_id) revalidatePath(`/processes/${data.process_id}`);
 }
 
 export async function createInteraction(data: {
@@ -236,6 +245,7 @@ export async function createInteraction(data: {
   comment?: string | null;
   source_type?: InteractionSourceType | string;
   recruiter_id?: string | null;
+  process_id?: string | null;
 }) {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/login");
@@ -280,11 +290,13 @@ export async function createInteraction(data: {
       comment: data.comment ?? null,
       sourceType: prismaSourceType,
       recruiterId: data.recruiter_id ?? null,
+      processId: data.process_id ?? null,
     },
   });
 
   revalidatePath("/interactions");
   revalidatePath("/");
+  if (data.process_id) revalidatePath(`/processes/${data.process_id}`);
 
   return interaction.id;
 }

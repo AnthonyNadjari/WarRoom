@@ -56,6 +56,26 @@ export type Outcome = "None" | "Rejected" | "Interview" | "Offer";
 
 export type InteractionSourceType = "Direct" | "Via Recruiter";
 
+export type ProcessStatus = "Active" | "Interviewing" | "Offer" | "Rejected" | "Closed";
+
+export interface Process {
+  id: string;
+  user_id: string;
+  company_id: string;
+  role_title: string;
+  location: string | null;
+  status: ProcessStatus;
+  source_process_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ProcessWithRelations = Process & {
+  company?: { id: string; name: string; website_domain?: string | null; logo_url?: string | null } | null;
+  sourceProcess?: { id: string; role_title: string; company?: { id: string; name: string } | null } | null;
+  _count?: { interactions: number };
+};
+
 export interface Company {
   id: string;
   user_id: string;
@@ -107,6 +127,7 @@ export interface Interaction {
   comment: string | null;
   source_type: InteractionSourceType;
   recruiter_id: string | null;
+  process_id: string | null;
   created_at: string;
 }
 
@@ -114,4 +135,5 @@ export type InteractionWithRelations = Interaction & {
   company?: { id: string; name: string; website_domain?: string | null; logo_url?: string | null } | null;
   contact?: { id: string; first_name: string | null; last_name: string | null } | null;
   recruiter?: { id: string; name: string } | null;
+  process?: { id: string; role_title: string; status: ProcessStatus } | null;
 };

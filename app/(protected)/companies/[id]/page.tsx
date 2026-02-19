@@ -1,8 +1,9 @@
 import { redirect, notFound } from "next/navigation";
 import { getCurrentUserId } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
-import { companyTypeToApi, interactionStatusToApi, interactionTypeToApi, sourceTypeToApi } from "@/lib/map-prisma";
+import { companyTypeToApi, interactionStatusToApi, interactionTypeToApi, sourceTypeToApi, processStatusToApi } from "@/lib/map-prisma";
 import { CompanyDetailClient } from "./company-detail-client";
+import { getProcessesForCompany } from "@/app/actions/processes";
 import type { Contact, Interaction } from "@prisma/client";
 
 export default async function CompanyPage({
@@ -81,6 +82,7 @@ export default async function CompanyPage({
     comment: i.comment,
     source_type: sourceTypeToApi(i.sourceType),
     recruiter_id: i.recruiterId,
+    process_id: i.processId,
     created_at: i.createdAt.toISOString(),
     contact: i.contact
       ? {
@@ -91,12 +93,15 @@ export default async function CompanyPage({
       : null,
   })) as import("@/types/database").InteractionWithRelations[];
 
+  const processes = await getProcessesForCompany(id);
+
   return (
     <CompanyDetailClient
       company={companyApi}
       contacts={contactsApi}
       interactions={interactionsApi}
-      defaultTab={tab === "people" ? "people" : tab === "performance" ? "performance" : "interactions"}
+      processes={processes}
+      defaultTab={tab === "people" ? "people" : tab === "processes" ? "processes" : tab === "performance" ? "performance" : "interactions"}
     />
   );
 }

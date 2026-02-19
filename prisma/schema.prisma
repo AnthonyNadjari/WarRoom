@@ -57,6 +57,7 @@ model User {
   companies     Company[]
   contacts      Contact[]
   interactions  Interaction[]
+  processes     Process[]
 
   @@map("users")
 }
@@ -147,6 +148,14 @@ enum InteractionSourceType {
   ViaRecruiter  @map("Via Recruiter")
 }
 
+enum ProcessStatus {
+  Active
+  Interviewing
+  Offer
+  Rejected
+  Closed
+}
+
 // ---- WarRoom business models ----
 model Company {
   id            String      @id @default(uuid())
@@ -163,6 +172,7 @@ model Company {
   contacts              Contact[]
   interactions          Interaction[]
   recruiterInteractions Interaction[] @relation("RecruiterInteractions")
+  processes             Process[]
 
   @@index([userId])
   @@index([name])
@@ -216,12 +226,14 @@ model Interaction {
   comment            String?
   sourceType         InteractionSourceType     @default(Direct) @map("source_type")
   recruiterId        String?                   @map("recruiter_id")
+  processId          String?                   @map("process_id")
   createdAt          DateTime                  @default(now()) @map("created_at")
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
   recruiter Company? @relation("RecruiterInteractions", fields: [recruiterId], references: [id])
+  process   Process? @relation(fields: [processId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([companyId])
@@ -230,5 +242,29 @@ model Interaction {
   @@index([dateSent(sort: Desc)])
   @@index([nextFollowUpDate])
   @@index([recruiterId])
+  @@index([processId])
   @@map("interactions")
+}
+
+model Process {
+  id              String        @id @default(cuid())
+  userId          String        @map("user_id")
+  companyId       String        @map("company_id")
+  roleTitle       String        @map("role_title")
+  location        String?
+  status          ProcessStatus @default(Active)
+  sourceProcessId String?       @map("source_process_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceProcess   Process?  @relation("ProcessSource", fields: [sourceProcessId], references: [id], onDelete: SetNull)
+  childProcesses  Process[] @relation("ProcessSource")
+  interactions    Interaction[]
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([sourceProcessId])
+  @@map("processes")
 }

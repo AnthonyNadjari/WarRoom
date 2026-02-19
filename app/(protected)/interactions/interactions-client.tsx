@@ -55,6 +55,13 @@ type InteractionRow = Interaction & {
   recruiter?: { id: string; name: string } | null;
 };
 
+type ProcessSelect = {
+  id: string;
+  role_title: string;
+  status: string;
+  company: { id: string; name: string } | null;
+};
+
 const STATUS_OPTIONS: InteractionStatus[] = [
   "Sent",
   "Waiting",
@@ -459,8 +466,9 @@ function NewInteractionDialog({
 function InteractionsInner(props: {
   initialInteractions: InteractionRow[];
   companies: Pick<Company, "id" | "name">[];
+  processes: ProcessSelect[];
 }) {
-  const { companies } = props;
+  const { companies, processes } = props;
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
   const router = useRouter();
@@ -469,6 +477,7 @@ function InteractionsInner(props: {
   const [companyFilter, setCompanyFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [processFilter, setProcessFilter] = useState<string>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -484,6 +493,7 @@ function InteractionsInner(props: {
     companyFilter !== "all" ||
     priorityFilter !== "all" ||
     categoryFilter !== "all" ||
+    processFilter !== "all" ||
     dateFrom ||
     dateTo;
 
@@ -497,6 +507,13 @@ function InteractionsInner(props: {
       list = list.filter((i) => i.priority === priorityFilter);
     if (categoryFilter !== "all")
       list = list.filter((i) => i.global_category === categoryFilter);
+    if (processFilter !== "all") {
+      if (processFilter === "none") {
+        list = list.filter((i) => !i.process_id);
+      } else {
+        list = list.filter((i) => i.process_id === processFilter);
+      }
+    }
     if (dateFrom)
       list = list.filter((i) => i.date_sent && i.date_sent >= dateFrom);
     if (dateTo)
@@ -508,6 +525,7 @@ function InteractionsInner(props: {
     companyFilter,
     priorityFilter,
     categoryFilter,
+    processFilter,
     dateFrom,
     dateTo,
   ]);
@@ -522,6 +540,7 @@ function InteractionsInner(props: {
     setCompanyFilter("all");
     setPriorityFilter("all");
     setCategoryFilter("all");
+    setProcessFilter("all");
     setDateFrom("");
     setDateTo("");
   }
@@ -619,6 +638,22 @@ function InteractionsInner(props: {
               ))}
             </SelectContent>
           </Select>
+          {processes.length > 0 && (
+            <Select value={processFilter} onValueChange={setProcessFilter}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue placeholder="Process" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All processes</SelectItem>
+                <SelectItem value="none">No process</SelectItem>
+                {processes.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.company?.name ?? "—"} — {p.role_title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Input
             type="date"
             placeholder="From"
@@ -856,6 +891,7 @@ function InteractionsInner(props: {
 export function InteractionsClient(props: {
   initialInteractions: InteractionRow[];
   companies: Pick<Company, "id" | "name">[];
+  processes: ProcessSelect[];
 }) {
   return (
     <Suspense>

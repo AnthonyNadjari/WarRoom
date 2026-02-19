@@ -7,12 +7,14 @@ import {
   Building2,
   Users,
   MessageSquare,
+  FolderKanban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Home", icon: LayoutDashboard },
   { href: "/companies", label: "Companies", icon: Building2 },
+  { href: "/processes", label: "Processes", icon: FolderKanban },
   { href: "/contacts", label: "Contacts", icon: Users },
   { href: "/interactions", label: "Activity", icon: MessageSquare },
 ];

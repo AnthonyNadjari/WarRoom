@@ -3,6 +3,7 @@ import type {
   CompanyType as PrismaCompanyType,
   InteractionType as PrismaInteractionType,
   InteractionSourceType as PrismaInteractionSourceType,
+  ProcessStatus as PrismaProcessStatus,
 } from "@prisma/client";
 
 export function interactionStatusToApi(
@@ -91,4 +92,16 @@ export function sourceTypeToApi(type: PrismaInteractionSourceType): string {
 
 export function sourceTypeFromApi(type: string): PrismaInteractionSourceType {
   return (SOURCE_TYPE_API_TO_PRISMA[type] ?? type) as PrismaInteractionSourceType;
+}
+
+// ---- ProcessStatus ----
+// ProcessStatus enum values are the same in Prisma and API (no @map needed)
+// so these are simple pass-through functions for consistency.
+
+export function processStatusToApi(status: PrismaProcessStatus): string {
+  return status;
+}
+
+export function processStatusFromApi(status: string): PrismaProcessStatus {
+  return status as PrismaProcessStatus;
 }
