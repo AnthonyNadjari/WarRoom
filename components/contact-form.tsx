@@ -189,12 +189,12 @@ export function ContactForm(props: {
       {managerOptions.length > 0 && (
         <div className="space-y-2">
           <Label>Manager</Label>
-          <Select value={managerId} onValueChange={setManagerId}>
+          <Select value={managerId || "__none__"} onValueChange={(v) => setManagerId(v === "__none__" ? "" : v)}>
             <SelectTrigger>
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">—</SelectItem>
+              <SelectItem value="__none__">—</SelectItem>
               {managerOptions.map((m) => (
                 <SelectItem key={m.id} value={m.id}>
                   {m.name}

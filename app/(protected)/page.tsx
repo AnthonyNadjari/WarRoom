@@ -7,7 +7,14 @@ export default async function DashboardPage() {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/login");
 
-  const interactions = await getInteractionsForDashboard();
-
-  return <DashboardClient initialInteractions={interactions} />;
+  try {
+    const interactions = await getInteractionsForDashboard();
+    return <DashboardClient initialInteractions={interactions} />;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (process.env.NODE_ENV === "development") {
+      throw new Error(`Dashboard failed: ${message}. Did you run \`npx prisma migrate deploy\`?`);
+    }
+    throw err;
+  }
 }

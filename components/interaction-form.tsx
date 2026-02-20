@@ -382,12 +382,12 @@ export function InteractionForm(props: {
       </div>
       <div className="space-y-2">
         <Label>Attach to Process</Label>
-        <Select value={processId} onValueChange={(v) => patch(setProcessId, v)}>
+        <Select value={processId || "__none__"} onValueChange={(v) => patch(setProcessId, v === "__none__" ? "" : v)}>
           <SelectTrigger>
             <SelectValue placeholder="None" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">None</SelectItem>
+            <SelectItem value="__none__">None</SelectItem>
             {processOptions.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.company?.name ?? "—"} — {p.role_title}
@@ -398,12 +398,12 @@ export function InteractionForm(props: {
       </div>
       <div className="space-y-2">
         <Label>Related to (optional)</Label>
-        <Select value={parentInteractionId} onValueChange={(v) => patch(setParentInteractionId, v)}>
+        <Select value={parentInteractionId || "__none__"} onValueChange={(v) => patch(setParentInteractionId, v === "__none__" ? "" : v)}>
           <SelectTrigger>
             <SelectValue placeholder="None" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">None</SelectItem>
+            <SelectItem value="__none__">None</SelectItem>
             {parentOptions.map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.company?.name ?? "—"} — {p.role_title ?? "—"} — {p.type ?? "—"} — {p.date_sent ? formatDate(p.date_sent) : "—"}

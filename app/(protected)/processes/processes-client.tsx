@@ -90,7 +90,7 @@ function NewProcessDialog({
         company_id: companyId,
         role_title: roleTitle.trim(),
         location: location.trim() || null,
-        source_process_id: sourceProcessId.trim() || null,
+        source_process_id: (sourceProcessId === "__none__" ? "" : sourceProcessId).trim() || null,
       });
       onOpenChange(false);
       router.push(`/processes/${id}`);
@@ -140,12 +140,12 @@ function NewProcessDialog({
           </div>
           <div className="space-y-2">
             <Label>Introduced via (optional)</Label>
-            <Select value={sourceProcessId} onValueChange={setSourceProcessId}>
+            <Select value={sourceProcessId || "__none__"} onValueChange={(v) => setSourceProcessId(v === "__none__" ? "" : v)}>
               <SelectTrigger>
                 <SelectValue placeholder="None — Direct application" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="__none__">None</SelectItem>
                 {allProcesses
                   .filter((p) => p.status !== "Closed" && p.status !== "Rejected")
                   .map((p) => (
