@@ -71,14 +71,15 @@ export async function createCompany(data: {
       userId,
       name: data.name,
       type: companyTypeToPrisma(data.type) as PrismaCompanyType,
-      mainLocation: data.main_location,
-      websiteDomain: data.website_domain,
-      logoUrl: data.logo_url,
-      notes: data.notes,
+      mainLocation: data.main_location ?? null,
+      websiteDomain: data.website_domain?.trim() || null,
+      logoUrl: data.logo_url?.trim() || null,
+      notes: data.notes ?? null,
     },
     select: { id: true },
   });
   revalidatePath("/companies");
+  revalidatePath("/");
   return company;
 }
 
@@ -100,14 +101,15 @@ export async function updateCompany(
     data: {
       name: data.name,
       type: companyTypeToPrisma(data.type),
-      mainLocation: data.main_location,
-      websiteDomain: data.website_domain,
-      logoUrl: data.logo_url,
-      notes: data.notes,
+      mainLocation: data.main_location ?? null,
+      websiteDomain: data.website_domain?.trim() || null,
+      logoUrl: data.logo_url?.trim() || null,
+      notes: data.notes ?? null,
     },
   });
   revalidatePath("/companies");
   revalidatePath(`/companies/${id}`);
+  revalidatePath("/");
 }
 
 export async function deleteCompany(id: string) {

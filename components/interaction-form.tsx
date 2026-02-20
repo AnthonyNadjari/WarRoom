@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { updateInteraction, getRecruitersForSelect } from "@/app/actions/interactions";
+import {
+  updateInteraction,
+  getRecruitersForSelect,
+  getInteractionsForParentSelect,
+} from "@/app/actions/interactions";
+import { updateProcess, getProcessesForCompany } from "@/app/actions/processes";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -12,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatDate } from "@/lib/utils";
 import type {
   Interaction,
   InteractionStatus,
@@ -21,6 +27,9 @@ import type {
   InteractionType,
   Outcome,
 } from "@/types/database";
+
+type ProcessOption = { id: string; role_title: string; status: string; company: { id: string; name: string } | null };
+type ParentOption = { id: string; role_title: string | null; type: string | null; date_sent: string | null; company: { name: string } | null };
 
 const STATUS_OPTIONS: InteractionStatus[] = [
   "Sent",
@@ -82,12 +91,37 @@ export function InteractionForm(props: {
   );
   const [recruiterId, setRecruiterId] = useState(interaction.recruiter_id ?? "");
   const [recruiters, setRecruiters] = useState<{ id: string; name: string }[]>([]);
+  const [processId, setProcessId] = useState(interaction.process_id ?? "");
+  const [parentInteractionId, setParentInteractionId] = useState(interaction.parent_interaction_id ?? "");
+  const [processOptions, setProcessOptions] = useState<ProcessOption[]>([]);
+  const [parentOptions, setParentOptions] = useState<ParentOption[]>([]);
+  const [updatingProcessStatus, setUpdatingProcessStatus] = useState(false);
 
   useEffect(() => {
     if (sourceType === "Via Recruiter" && recruiters.length === 0) {
       getRecruitersForSelect().then(setRecruiters);
     }
   }, [sourceType, recruiters.length]);
+
+  useEffect(() => {
+    if (!interaction.company_id) return;
+    getProcessesForCompany(interaction.company_id).then((list) =>
+      setProcessOptions(
+        list.map((p) => ({
+          id: p.id,
+          role_title: p.role_title,
+          status: p.status,
+          company: p.company ? { id: p.company.id, name: p.company.name } : null,
+        }))
+      )
+    );
+  }, [interaction.company_id]);
+
+  useEffect(() => {
+    getInteractionsForParentSelect().then((list) =>
+      setParentOptions(list.filter((p) => p.id !== interaction.id))
+    );
+  }, [interaction.id]);
 
   const save = useCallback(async () => {
     setSaving(true);
@@ -104,6 +138,8 @@ export function InteractionForm(props: {
       comment: comment || null,
       source_type: sourceType,
       recruiter_id: sourceType === "Via Recruiter" ? (recruiterId || null) : null,
+      process_id: processId.trim() || null,
+      parent_interaction_id: parentInteractionId.trim() || null,
     });
     setSaving(false);
     setDirty(false);
@@ -122,6 +158,8 @@ export function InteractionForm(props: {
     comment,
     sourceType,
     recruiterId,
+    processId,
+    parentInteractionId,
     onSaved,
   ]);
 
@@ -143,13 +181,33 @@ export function InteractionForm(props: {
     comment,
     sourceType,
     recruiterId,
+    processId,
+    parentInteractionId,
     save,
   ]);
+
+  async function handleMarkProcessInterviewing() {
+    const process = (interaction as Interaction & { process?: { id: string; status: string } }).process;
+    if (!process?.id) return;
+    setUpdatingProcessStatus(true);
+    await updateProcess(process.id, { status: "Interviewing" });
+    setUpdatingProcessStatus(false);
+    onSaved?.();
+  }
 
   const patch = useCallback(<T,>(setter: (v: T) => void, value: T) => {
     setter(value);
     setDirty(true);
   }, []);
+
+  const interactionWithMeta = interaction as Interaction & {
+    updated_at?: string;
+    process?: { id: string; status: string };
+    parentInteraction?: { id: string; role_title: string | null; type: string | null; date_sent: string | null; company?: { name: string } | null };
+  };
+  const showInterviewingSuggestion =
+    status === "Interview" &&
+    interactionWithMeta.process?.status === "Active";
 
   return (
     <form
@@ -159,6 +217,25 @@ export function InteractionForm(props: {
         save();
       }}
     >
+      {interactionWithMeta.updated_at && (
+        <p className="text-xs text-muted-foreground">
+          Last updated: {formatDate(interactionWithMeta.updated_at)}
+        </p>
+      )}
+      {showInterviewingSuggestion && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm dark:border-amber-900/50 dark:bg-amber-950/30">
+          <span className="text-muted-foreground">Mark process as Interviewing?</span>{" "}
+          <Button
+            type="button"
+            variant="link"
+            className="h-auto p-0 text-amber-700 dark:text-amber-400"
+            disabled={updatingProcessStatus}
+            onClick={handleMarkProcessInterviewing}
+          >
+            {updatingProcessStatus ? "Updating…" : "Yes"}
+          </Button>
+        </div>
+      )}
       <div className="space-y-2">
         <Label>Role title</Label>
         <Input
@@ -302,6 +379,38 @@ export function InteractionForm(props: {
           value={comment}
           onChange={(e) => patch(setComment, e.target.value)}
         />
+      </div>
+      <div className="space-y-2">
+        <Label>Attach to Process</Label>
+        <Select value={processId} onValueChange={(v) => patch(setProcessId, v)}>
+          <SelectTrigger>
+            <SelectValue placeholder="None" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">None</SelectItem>
+            {processOptions.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.company?.name ?? "—"} — {p.role_title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Related to (optional)</Label>
+        <Select value={parentInteractionId} onValueChange={(v) => patch(setParentInteractionId, v)}>
+          <SelectTrigger>
+            <SelectValue placeholder="None" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">None</SelectItem>
+            {parentOptions.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.company?.name ?? "—"} — {p.role_title ?? "—"} — {p.type ?? "—"} — {p.date_sent ? formatDate(p.date_sent) : "—"}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>

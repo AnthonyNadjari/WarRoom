@@ -75,7 +75,7 @@ function NewProcessDialog({
   const [companyId, setCompanyId] = useState(preselectedCompanyId ?? "");
   const [roleTitle, setRoleTitle] = useState("");
   const [location, setLocation] = useState("");
-  const [sourceProcessId, setSourceProcessId] = useState("");
+  const [sourceProcessId, setSourceProcessId] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -90,7 +90,7 @@ function NewProcessDialog({
         company_id: companyId,
         role_title: roleTitle.trim(),
         location: location.trim() || null,
-        source_process_id: sourceProcessId && sourceProcessId !== "none" ? sourceProcessId : null,
+        source_process_id: sourceProcessId.trim() || null,
       });
       onOpenChange(false);
       router.push(`/processes/${id}`);
@@ -145,7 +145,7 @@ function NewProcessDialog({
                 <SelectValue placeholder="None — Direct application" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="">None</SelectItem>
                 {allProcesses
                   .filter((p) => p.status !== "Closed" && p.status !== "Rejected")
                   .map((p) => (

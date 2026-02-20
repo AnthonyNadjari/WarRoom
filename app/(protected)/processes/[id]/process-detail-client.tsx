@@ -14,7 +14,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { updateProcess, deleteProcess } from "@/app/actions/processes";
-import { createInteraction } from "@/app/actions/interactions";
+import { createInteraction, getInteractionsForCompany, updateInteraction } from "@/app/actions/interactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -123,14 +123,12 @@ function AddInteractionDialog({
   const [category, setCategory] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Autofill roleTitle from contact's exactTitle
+  // Autofill roleTitle from contact's exactTitle only when roleTitle is empty
   useEffect(() => {
-    if (!contactId || roleTitleManual) return;
+    if (!contactId || roleTitleManual || roleTitle.trim() !== "") return;
     const contact = contacts.find((c) => c.id === contactId);
-    if (contact?.exactTitle) {
-      setRoleTitle(contact.exactTitle);
-    }
-  }, [contactId, contacts, roleTitleManual]);
+    if (contact?.exactTitle) setRoleTitle(contact.exactTitle);
+  }, [contactId, contacts, roleTitleManual, roleTitle]);
 
   const handleSubmit = async () => {
     if (!contactId) return;
@@ -242,6 +240,99 @@ function AddInteractionDialog({
   );
 }
 
+type AttachableInteraction = {
+  id: string;
+  role_title: string | null;
+  type: string | null;
+  date_sent: string | null;
+  process_id: string | null;
+  contact?: { first_name: string | null; last_name: string | null } | null;
+};
+
+function AttachExistingInteractionDialog({
+  open,
+  onOpenChange,
+  processId,
+  companyId,
+  onAttached,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  processId: string;
+  companyId: string;
+  onAttached: () => void;
+}) {
+  const [list, setList] = useState<AttachableInteraction[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [attachingId, setAttachingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !companyId) return;
+    setLoading(true);
+    getInteractionsForCompany(companyId).then((data) => {
+      const attachable = data.filter((i) => i.process_id !== processId);
+      setList(attachable);
+      setLoading(false);
+    });
+  }, [open, companyId, processId]);
+
+  const handleAttach = async (interactionId: string) => {
+    setAttachingId(interactionId);
+    await updateInteraction(interactionId, { process_id: processId });
+    setAttachingId(null);
+    onAttached();
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Attach Existing Interaction</DialogTitle>
+        </DialogHeader>
+        <div className="max-h-80 overflow-y-auto space-y-2 pt-2">
+          {loading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : list.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No other interactions for this company to attach.
+            </p>
+          ) : (
+            list.map((i) => {
+              const name = i.contact
+                ? [i.contact.first_name, i.contact.last_name].filter(Boolean).join(" ") || "—"
+                : "—";
+              return (
+                <div
+                  key={i.id}
+                  className="flex items-center justify-between rounded-lg border p-3 text-sm"
+                >
+                  <div>
+                    <span className="font-medium">{i.role_title ?? "—"}</span>
+                    <span className="text-muted-foreground"> · {name}</span>
+                    {i.date_sent && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        {formatDate(i.date_sent)}
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={!!attachingId}
+                    onClick={() => handleAttach(i.id)}
+                  >
+                    {attachingId === i.id ? "Attaching…" : "Attach"}
+                  </Button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export function ProcessDetailClient({
   process,
   interactions,
@@ -260,6 +351,7 @@ export function ProcessDetailClient({
   const router = useRouter();
   const [status, setStatus] = useState(process.status);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [attachExistingOpen, setAttachExistingOpen] = useState(false);
 
   const handleStatusChange = async (newStatus: string) => {
     setStatus(newStatus as ProcessStatus);
@@ -410,10 +502,15 @@ export function ProcessDetailClient({
             <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
               {interactions.length}
             </span>
-            <Button size="sm" variant="ghost" onClick={() => setAddDialogOpen(true)}>
-              <Plus className="h-4 w-4" />
-              Add
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" onClick={() => setAttachExistingOpen(true)}>
+                Attach existing
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setAddDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Add
+              </Button>
+            </div>
           </div>
           <div className="p-2">
             {interactions.length === 0 ? (
@@ -494,6 +591,13 @@ export function ProcessDetailClient({
         processId={process.id}
         companyId={process.company_id}
         contacts={contacts}
+      />
+      <AttachExistingInteractionDialog
+        open={attachExistingOpen}
+        onOpenChange={setAttachExistingOpen}
+        processId={process.id}
+        companyId={process.company_id}
+        onAttached={() => router.refresh()}
       />
     </div>
   );

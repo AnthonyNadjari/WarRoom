@@ -54,6 +54,7 @@ type InteractionRow = Interaction & {
   } | null;
   recruiter?: { id: string; name: string } | null;
   process?: { id: string; role_title: string; status: string } | null;
+  parentInteraction?: { id: string; role_title: string | null; type: string | null; date_sent: string | null; company?: { name: string } | null } | null;
 };
 
 type ProcessSelect = {
@@ -194,14 +195,13 @@ function NewInteractionDialog({
     });
   }, [companyId]);
 
-  // Autofill roleTitle from contact's exactTitle
+  // Autofill roleTitle from contact's exactTitle only when roleTitle is empty (do not overwrite manual edits)
   useEffect(() => {
     if (!contactId || roleTitleManual) return;
     const contact = contacts.find((c) => c.id === contactId);
-    if (contact?.exactTitle) {
-      setRoleTitle(contact.exactTitle);
-    }
-  }, [contactId, contacts, roleTitleManual]);
+    if (!contact?.exactTitle || roleTitle.trim() !== "") return;
+    setRoleTitle(contact.exactTitle);
+  }, [contactId, contacts, roleTitleManual, roleTitle]);
 
   useEffect(() => {
     if (sourceType === "Via Recruiter" && recruiters.length === 0) {
@@ -771,15 +771,26 @@ function InteractionsInner(props: {
                         {name}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        <div className="flex items-center gap-1.5">
-                          {i.role_title ?? "—"}
-                          {i.process && (
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5">
+                            {i.role_title ?? "—"}
+                            {i.process && (
+                              <Link
+                                href={`/processes/${i.process.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
+                              >
+                                {i.process.role_title}
+                              </Link>
+                            )}
+                          </div>
+                          {i.parentInteraction && (
                             <Link
-                              href={`/processes/${i.process.id}`}
+                              href={`/interactions?highlight=${i.parentInteraction.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
+                              className="text-xs text-muted-foreground hover:underline"
                             >
-                              {i.process.role_title}
+                              ↳ Follow-up to: {i.parentInteraction.company?.name ?? "—"} — {i.parentInteraction.role_title ?? "—"} — {i.parentInteraction.date_sent ? formatDate(i.parentInteraction.date_sent) : "—"}
                             </Link>
                           )}
                         </div>
@@ -842,6 +853,15 @@ function InteractionsInner(props: {
                     <div className="mt-1 text-muted-foreground">
                       {name} · {i.role_title ?? "—"}
                     </div>
+                    {i.parentInteraction && (
+                      <Link
+                        href={`/interactions?highlight=${i.parentInteraction.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-1 block text-xs text-muted-foreground hover:underline"
+                      >
+                        ↳ Follow-up to: {i.parentInteraction.company?.name ?? "—"} — {i.parentInteraction.role_title ?? "—"} — {i.parentInteraction.date_sent ? formatDate(i.parentInteraction.date_sent) : "—"}
+                      </Link>
+                    )}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {i.process && (
                         <Link
@@ -902,6 +922,20 @@ function InteractionsInner(props: {
                     : "")
                 : "Interaction"}
             </SheetTitle>
+            {selectedInteraction?.updated_at && (
+              <p className="text-xs text-muted-foreground">
+                Last updated: {formatDate(selectedInteraction.updated_at)}
+              </p>
+            )}
+            {selectedInteraction?.parentInteraction && (
+              <Link
+                href={`/interactions?highlight=${selectedInteraction.parentInteraction.id}`}
+                className="text-xs text-muted-foreground hover:underline"
+                onClick={() => setSelectedId(null)}
+              >
+                ↳ Follow-up to: {selectedInteraction.parentInteraction.company?.name ?? "—"} — {selectedInteraction.parentInteraction.role_title ?? "—"} — {selectedInteraction.parentInteraction.date_sent ? formatDate(selectedInteraction.parentInteraction.date_sent) : "—"}
+              </Link>
+            )}
           </SheetHeader>
           {selectedInteraction && (
             <InteractionForm

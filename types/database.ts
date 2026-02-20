@@ -128,7 +128,9 @@ export interface Interaction {
   source_type: InteractionSourceType;
   recruiter_id: string | null;
   process_id: string | null;
+  parent_interaction_id: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export type InteractionWithRelations = Interaction & {
@@ -136,4 +138,5 @@ export type InteractionWithRelations = Interaction & {
   contact?: { id: string; first_name: string | null; last_name: string | null } | null;
   recruiter?: { id: string; name: string } | null;
   process?: { id: string; role_title: string; status: ProcessStatus } | null;
+  parentInteraction?: { id: string; role_title: string | null; type: InteractionType | null; date_sent: string | null; company?: { name: string } | null } | null;
 };

@@ -26,10 +26,12 @@ import type {
 } from "@/types/database";
 
 type InteractionWithIncludes = PrismaInteraction & {
+  updatedAt?: Date;
   company?: { id: string; name: string; websiteDomain: string | null; logoUrl: string | null } | null;
   contact?: { id: string; firstName: string | null; lastName: string | null } | null;
   recruiter?: { id: string; name: string } | null;
   process?: { id: string; roleTitle: string; status: import("@prisma/client").ProcessStatus } | null;
+  parentInteraction?: { id: string; roleTitle: string | null; type: PrismaInteraction["type"]; dateSent: Date | null; company?: { name: string } | null } | null;
 };
 
 function mapInteraction(i: InteractionWithIncludes) {
@@ -51,7 +53,9 @@ function mapInteraction(i: InteractionWithIncludes) {
     source_type: sourceTypeToApi(i.sourceType),
     recruiter_id: i.recruiterId,
     process_id: i.processId,
+    parent_interaction_id: i.parentInteractionId ?? null,
     created_at: i.createdAt.toISOString(),
+    updated_at: (i as { updatedAt?: Date }).updatedAt?.toISOString() ?? i.createdAt.toISOString(),
     company: i.company
       ? {
           id: i.company.id,
@@ -73,6 +77,15 @@ function mapInteraction(i: InteractionWithIncludes) {
     process: i.process
       ? { id: i.process.id, role_title: i.process.roleTitle, status: i.process.status }
       : null,
+    parentInteraction: i.parentInteraction
+      ? {
+          id: i.parentInteraction.id,
+          role_title: i.parentInteraction.roleTitle,
+          type: i.parentInteraction.type != null ? interactionTypeToApi(i.parentInteraction.type) : null,
+          date_sent: i.parentInteraction.dateSent?.toISOString().slice(0, 10) ?? null,
+          company: i.parentInteraction.company ? { name: i.parentInteraction.company.name } : null,
+        }
+      : null,
   };
 }
 
@@ -81,6 +94,15 @@ const INTERACTION_INCLUDES = {
   contact: { select: { id: true, firstName: true, lastName: true } },
   recruiter: { select: { id: true, name: true } },
   process: { select: { id: true, roleTitle: true, status: true } },
+  parentInteraction: {
+    select: {
+      id: true,
+      roleTitle: true,
+      type: true,
+      dateSent: true,
+      company: { select: { name: true } },
+    },
+  },
 } as const;
 
 export async function getInteractionsWithRelations(): Promise<InteractionWithRelations[]> {
@@ -178,6 +200,7 @@ export async function updateInteraction(
     source_type?: InteractionSourceType | string;
     recruiter_id?: string | null;
     process_id?: string | null;
+    parent_interaction_id?: string | null;
   }
 ) {
   const userId = await getCurrentUserId();
@@ -198,6 +221,21 @@ export async function updateInteraction(
     });
     if (!recruiter || recruiter.type !== "Recruiter") {
       throw new Error("Invalid recruiter: must be a company with type Recruiter");
+    }
+  }
+
+  // Validate parent interaction if provided
+  if (data.parent_interaction_id != null && data.parent_interaction_id !== "") {
+    if (data.parent_interaction_id === id) {
+      throw new Error("An interaction cannot be its own parent");
+    }
+    const parent = await prisma.interaction.findFirst({
+      where: { id: data.parent_interaction_id, userId },
+      select: { id: true, parentInteractionId: true },
+    });
+    if (!parent) throw new Error("Parent interaction not found");
+    if (parent.parentInteractionId === id) {
+      throw new Error("Cannot create circular reference");
     }
   }
 
@@ -226,11 +264,66 @@ export async function updateInteraction(
       sourceType,
       recruiterId: data.recruiter_id,
       processId: data.process_id,
+      parentInteractionId: data.parent_interaction_id === "" ? null : data.parent_interaction_id ?? null,
     },
   });
   revalidatePath("/interactions");
   revalidatePath("/");
   if (data.process_id) revalidatePath(`/processes/${data.process_id}`);
+}
+
+/** Interactions for a company (e.g. "Attach existing" modal). Returns id, roleTitle, type, dateSent, process_id. */
+export async function getInteractionsForCompany(companyId: string): Promise<
+  { id: string; role_title: string | null; type: string | null; date_sent: string | null; process_id: string | null; contact?: { first_name: string | null; last_name: string | null } | null }[]
+> {
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
+  const list = await prisma.interaction.findMany({
+    where: { userId, companyId },
+    select: {
+      id: true,
+      roleTitle: true,
+      type: true,
+      dateSent: true,
+      processId: true,
+      contact: { select: { firstName: true, lastName: true } },
+    },
+    orderBy: { dateSent: "desc" },
+  });
+  return list.map((i) => ({
+    id: i.id,
+    role_title: i.roleTitle,
+    type: i.type != null ? interactionTypeToApi(i.type) : null,
+    date_sent: i.dateSent?.toISOString().slice(0, 10) ?? null,
+    process_id: i.processId,
+    contact: i.contact ? { first_name: i.contact.firstName, last_name: i.contact.lastName } : null,
+  }));
+}
+
+/** All interactions for "Related to" / parent dropdown. Company — roleTitle — type — date. */
+export async function getInteractionsForParentSelect(): Promise<
+  { id: string; role_title: string | null; type: string | null; date_sent: string | null; company: { name: string } | null }[]
+> {
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
+  const list = await prisma.interaction.findMany({
+    where: { userId },
+    select: {
+      id: true,
+      roleTitle: true,
+      type: true,
+      dateSent: true,
+      company: { select: { name: true } },
+    },
+    orderBy: { dateSent: "desc" },
+  });
+  return list.map((i) => ({
+    id: i.id,
+    role_title: i.roleTitle,
+    type: i.type != null ? interactionTypeToApi(i.type) : null,
+    date_sent: i.dateSent?.toISOString().slice(0, 10) ?? null,
+    company: i.company ? { name: i.company.name } : null,
+  }));
 }
 
 export async function createInteraction(data: {
@@ -246,6 +339,7 @@ export async function createInteraction(data: {
   source_type?: InteractionSourceType | string;
   recruiter_id?: string | null;
   process_id?: string | null;
+  parent_interaction_id?: string | null;
 }) {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/login");
@@ -267,6 +361,17 @@ export async function createInteraction(data: {
     if (!recruiter || recruiter.type !== "Recruiter") {
       throw new Error("Invalid recruiter: must be a company with type Recruiter");
     }
+  }
+
+  // Validate parent interaction if provided
+  let parentInteractionId: string | null = null;
+  if (data.parent_interaction_id != null && data.parent_interaction_id !== "") {
+    const parent = await prisma.interaction.findFirst({
+      where: { id: data.parent_interaction_id, userId },
+      select: { id: true, parentInteractionId: true },
+    });
+    if (!parent) throw new Error("Parent interaction not found");
+    parentInteractionId = parent.id;
   }
 
   const status = data.status
@@ -291,6 +396,7 @@ export async function createInteraction(data: {
       sourceType: prismaSourceType,
       recruiterId: data.recruiter_id ?? null,
       processId: data.process_id ?? null,
+      parentInteractionId,
     },
   });
 

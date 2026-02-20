@@ -5,50 +5,14 @@ import {
   AlertTriangle,
   Clock,
   Briefcase,
-  Send,
-  ArrowRight,
-  TrendingUp,
-  Building2,
-  MessageSquare,
+  Phone,
+  Calendar,
   Users,
-  FolderKanban,
-  CheckCircle,
-  XCircle,
 } from "lucide-react";
 import { getFollowUpSeverity } from "@/lib/follow-up";
 import { CompanyLogo } from "@/components/company-logo";
-import type { InteractionWithRelations, ProcessWithRelations } from "@/types/database";
+import type { InteractionWithRelations } from "@/types/database";
 import { cn, formatDate } from "@/lib/utils";
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  color,
-  href,
-}: {
-  label: string;
-  value: number;
-  icon: React.ElementType;
-  color: string;
-  href?: string;
-}) {
-  const card = (
-    <div className={cn(
-      "glass-card flex items-center gap-4 p-5 transition-all",
-      href && "cursor-pointer hover:shadow-md hover:-translate-y-0.5"
-    )}>
-      <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl", color)}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-2xl font-bold tracking-tight">{value}</p>
-        <p className="text-sm text-muted-foreground">{label}</p>
-      </div>
-    </div>
-  );
-  return href ? <Link href={href}>{card}</Link> : card;
-}
 
 function InteractionRow({
   i,
@@ -72,12 +36,16 @@ function InteractionRow({
         severity === "orange" && "bg-amber-50 dark:bg-amber-950/30"
       )}
     >
-      <div className={cn(
-        "h-2 w-2 shrink-0 rounded-full",
-        severity === "red" ? "bg-red-500" :
-        severity === "orange" ? "bg-amber-500" :
-        "bg-blue-500"
-      )} />
+      <div
+        className={cn(
+          "h-2 w-2 shrink-0 rounded-full",
+          severity === "red"
+            ? "bg-red-500"
+            : severity === "orange"
+              ? "bg-amber-500"
+              : "bg-blue-500"
+        )}
+      />
       {company && (
         <CompanyLogo
           name={company.name}
@@ -100,13 +68,18 @@ function InteractionRow({
         <span className="text-xs text-muted-foreground">
           {i.date_sent ? formatDate(i.date_sent) : "—"}
         </span>
-        <span className={cn(
-          "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-          i.status === "Interview" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" :
-          i.status === "Offer" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300" :
-          i.status === "Rejected" ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300" :
-          "bg-muted text-muted-foreground"
-        )}>
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+            i.status === "Interview"
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+              : i.status === "Offer"
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                : i.status === "Rejected"
+                  ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                  : "bg-muted text-muted-foreground"
+          )}
+        >
           {i.status}
         </span>
       </div>
@@ -223,22 +196,26 @@ function RecruiterOverview({ interactions }: { interactions: InteractionWithRela
                   {r.mandates}
                 </td>
                 <td className="px-5 py-2.5 text-right tabular-nums">
-                  <span className={cn(
-                    "rounded-full px-2 py-0.5 text-xs font-semibold",
-                    r.interviews > 0
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                      : "text-muted-foreground"
-                  )}>
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-xs font-semibold",
+                      r.interviews > 0
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                        : "text-muted-foreground"
+                    )}
+                  >
                     {r.interviews}
                   </span>
                 </td>
                 <td className="px-5 py-2.5 text-right tabular-nums">
-                  <span className={cn(
-                    "rounded-full px-2 py-0.5 text-xs font-semibold",
-                    r.offers > 0
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
-                      : "text-muted-foreground"
-                  )}>
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-xs font-semibold",
+                      r.offers > 0
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                        : "text-muted-foreground"
+                    )}
+                  >
                     {r.offers}
                   </span>
                 </td>
@@ -251,35 +228,53 @@ function RecruiterOverview({ interactions }: { interactions: InteractionWithRela
   );
 }
 
+function startOfToday(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function endOfWeek(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 7);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function DashboardClient({
   initialInteractions,
-  initialProcesses,
 }: {
   initialInteractions: InteractionWithRelations[];
-  initialProcesses: ProcessWithRelations[];
 }) {
+  const today = startOfToday();
+  const weekEnd = endOfWeek();
+
   const red: InteractionWithRelations[] = [];
   const orange: InteractionWithRelations[] = [];
-  const interview: InteractionWithRelations[] = [];
-  const recent: InteractionWithRelations[] = [];
 
-  const statusCounts: Record<string, number> = {};
+  const scheduled: InteractionWithRelations[] = [];
+  const thisWeek: InteractionWithRelations[] = [];
+
   for (const i of initialInteractions) {
-    statusCounts[i.status] = (statusCounts[i.status] || 0) + 1;
     const severity = getFollowUpSeverity(i);
     if (severity === "red") red.push(i);
     else if (severity === "orange") orange.push(i);
-    if (i.status === "Interview") interview.push(i);
-  }
-  for (let idx = 0; idx < Math.min(8, initialInteractions.length); idx++) {
-    recent.push(initialInteractions[idx]);
+
+    const ds = i.date_sent ?? "";
+    if (ds >= today) {
+      const isCallOrInterview =
+        i.type === "Call" || i.status === "Interview";
+      if (isCallOrInterview) scheduled.push(i);
+      if (ds <= weekEnd) thisWeek.push(i);
+    }
   }
 
-  // Process pipeline counts
-  const processCounts: Record<string, number> = {};
-  for (const p of initialProcesses) {
-    processCounts[p.status] = (processCounts[p.status] || 0) + 1;
-  }
+  scheduled.sort((a, b) => (a.date_sent ?? "").localeCompare(b.date_sent ?? ""));
+  thisWeek.sort((a, b) => (a.date_sent ?? "").localeCompare(b.date_sent ?? ""));
 
   return (
     <div className="flex-1 p-5 md:p-8">
@@ -291,62 +286,21 @@ export function DashboardClient({
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            label="Active processes"
-            value={(processCounts["Active"] ?? 0) + (processCounts["Interviewing"] ?? 0)}
-            icon={FolderKanban}
-            color="bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
-            href="/processes"
-          />
-          <StatCard
-            label="Interviewing"
-            value={processCounts["Interviewing"] ?? 0}
-            icon={Briefcase}
-            color="bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400"
-            href="/processes"
-          />
-          <StatCard
-            label="Offers"
-            value={processCounts["Offer"] ?? 0}
-            icon={CheckCircle}
-            color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400"
-          />
-          <StatCard
-            label="Rejected"
-            value={processCounts["Rejected"] ?? 0}
-            icon={XCircle}
-            color="bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400"
-          />
-        </div>
+        <SectionBlock
+          title="Scheduled"
+          icon={Calendar}
+          items={scheduled}
+          emptyMessage="No upcoming calls or interviews."
+          accent="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
+        />
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            label="Total interactions"
-            value={initialInteractions.length}
-            icon={MessageSquare}
-            color="bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400"
-            href="/interactions"
-          />
-          <StatCard
-            label="Active interviews"
-            value={interview.length}
-            icon={Briefcase}
-            color="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-400"
-          />
-          <StatCard
-            label="Need follow-up"
-            value={red.length + orange.length}
-            icon={Clock}
-            color="bg-amber-100 text-amber-600 dark:bg-amber-900/50 dark:text-amber-400"
-          />
-          <StatCard
-            label="Overdue"
-            value={red.length}
-            icon={AlertTriangle}
-            color="bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-400"
-          />
-        </div>
+        <SectionBlock
+          title="This Week"
+          icon={Clock}
+          items={thisWeek}
+          emptyMessage="No interactions scheduled this week."
+          accent="bg-muted"
+        />
 
         <RecruiterOverview interactions={initialInteractions} />
 
@@ -366,20 +320,6 @@ export function DashboardClient({
             severity="orange"
             emptyMessage="No upcoming follow-ups"
             accent="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
-          />
-          <SectionBlock
-            title="Active interviews"
-            icon={Briefcase}
-            items={interview}
-            emptyMessage="No active interviews"
-            accent="bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400"
-          />
-          <SectionBlock
-            title="Recently sent"
-            icon={Send}
-            items={recent}
-            emptyMessage="No interactions yet — add your first one"
-            accent="bg-muted"
           />
         </div>
       </div>
