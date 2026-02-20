@@ -114,7 +114,7 @@ function NewProcessDialog({
                 <SelectValue placeholder="Select company" />
               </SelectTrigger>
               <SelectContent>
-                {companies.map((c) => (
+                {companies.filter((c) => c.id != null && c.id !== "").map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {c.name}
                   </SelectItem>
@@ -147,7 +147,7 @@ function NewProcessDialog({
               <SelectContent>
                 <SelectItem value="__none__">None</SelectItem>
                 {allProcesses
-                  .filter((p) => p.status !== "Closed" && p.status !== "Rejected")
+                  .filter((p) => p.status !== "Closed" && p.status !== "Rejected" && p.id != null && p.id !== "")
                   .map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.company?.name ?? "—"} — {p.role_title}

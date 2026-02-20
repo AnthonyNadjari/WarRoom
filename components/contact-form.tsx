@@ -195,7 +195,7 @@ export function ContactForm(props: {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">—</SelectItem>
-              {managerOptions.map((m) => (
+              {managerOptions.filter((m) => m.id != null && m.id !== "").map((m) => (
                 <SelectItem key={m.id} value={m.id}>
                   {m.name}
                 </SelectItem>

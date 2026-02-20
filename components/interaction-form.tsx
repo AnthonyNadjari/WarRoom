@@ -77,7 +77,7 @@ export function InteractionForm(props: {
     interaction.global_category ?? ""
   );
   const [type, setType] = useState<InteractionType | "">(interaction.type ?? "");
-  const [status, setStatus] = useState<InteractionStatus>(interaction.status);
+  const [status, setStatus] = useState<InteractionStatus>(interaction.status ?? "Sent");
   const [priority, setPriority] = useState<Priority | "">(interaction.priority ?? "");
   const [dateSent, setDateSent] = useState(interaction.date_sent ?? "");
   const [lastUpdate, setLastUpdate] = useState(interaction.last_update ?? "");
@@ -217,11 +217,6 @@ export function InteractionForm(props: {
         save();
       }}
     >
-      {interactionWithMeta.updated_at && (
-        <p className="text-xs text-muted-foreground">
-          Last updated: {formatDate(interactionWithMeta.updated_at)}
-        </p>
-      )}
       {showInterviewingSuggestion && (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-2 text-sm dark:border-amber-900/50 dark:bg-amber-950/30">
           <span className="text-muted-foreground">Mark process as Interviewing?</span>{" "}
@@ -246,7 +241,7 @@ export function InteractionForm(props: {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Status</Label>
-          <Select value={status} onValueChange={(v) => patch(setStatus, v as InteractionStatus)}>
+          <Select value={status || "Sent"} onValueChange={(v) => patch(setStatus, v as InteractionStatus)}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -259,11 +254,12 @@ export function InteractionForm(props: {
         </div>
         <div className="space-y-2">
           <Label>Priority</Label>
-          <Select value={priority} onValueChange={(v) => patch(setPriority, v as Priority)}>
+          <Select value={priority || "__none__"} onValueChange={(v) => patch(setPriority, (v === "__none__" ? "" : v) as Priority)}>
             <SelectTrigger>
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__none__">—</SelectItem>
               {PRIORITY_OPTIONS.map((p) => (
                 <SelectItem key={p} value={p}>{p}</SelectItem>
               ))}
@@ -274,11 +270,12 @@ export function InteractionForm(props: {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Category</Label>
-          <Select value={globalCategory} onValueChange={(v) => patch(setGlobalCategory, v as InteractionGlobalCategory)}>
+          <Select value={globalCategory || "__none__"} onValueChange={(v) => patch(setGlobalCategory, (v === "__none__" ? "" : v) as InteractionGlobalCategory)}>
             <SelectTrigger>
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__none__">—</SelectItem>
               {CATEGORY_OPTIONS.map((c) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
@@ -287,11 +284,12 @@ export function InteractionForm(props: {
         </div>
         <div className="space-y-2">
           <Label>Type</Label>
-          <Select value={type} onValueChange={(v) => patch(setType, v as InteractionType)}>
+          <Select value={type || "__none__"} onValueChange={(v) => patch(setType, (v === "__none__" ? "" : v) as InteractionType)}>
             <SelectTrigger>
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__none__">—</SelectItem>
               {TYPE_OPTIONS.map((t) => (
                 <SelectItem key={t} value={t}>{t}</SelectItem>
               ))}
@@ -321,12 +319,13 @@ export function InteractionForm(props: {
         {sourceType === "Via Recruiter" && (
           <div className="space-y-2">
             <Label>Recruiter</Label>
-            <Select value={recruiterId} onValueChange={(v) => patch(setRecruiterId, v)}>
+            <Select value={recruiterId || "__none__"} onValueChange={(v) => patch(setRecruiterId, v === "__none__" ? "" : v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select recruiter" />
               </SelectTrigger>
               <SelectContent>
-                {recruiters.map((r) => (
+                <SelectItem value="__none__">—</SelectItem>
+                {recruiters.filter((r) => r.id != null && r.id !== "").map((r) => (
                   <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                 ))}
               </SelectContent>
@@ -362,11 +361,12 @@ export function InteractionForm(props: {
       </div>
       <div className="space-y-2">
         <Label>Outcome</Label>
-        <Select value={outcome} onValueChange={(v) => patch(setOutcome, v as Outcome)}>
+        <Select value={outcome || "__none__"} onValueChange={(v) => patch(setOutcome, (v === "__none__" ? "" : v) as Outcome)}>
           <SelectTrigger>
             <SelectValue placeholder="—" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="__none__">—</SelectItem>
             {OUTCOME_OPTIONS.map((o) => (
               <SelectItem key={o} value={o}>{o}</SelectItem>
             ))}
@@ -388,7 +388,7 @@ export function InteractionForm(props: {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">None</SelectItem>
-            {processOptions.map((p) => (
+            {processOptions.filter((p) => p.id != null && p.id !== "").map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.company?.name ?? "—"} — {p.role_title}
               </SelectItem>
@@ -404,7 +404,7 @@ export function InteractionForm(props: {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="__none__">None</SelectItem>
-            {parentOptions.map((p) => (
+            {parentOptions.filter((p) => p.id != null && p.id !== "").map((p) => (
               <SelectItem key={p.id} value={p.id}>
                 {p.company?.name ?? "—"} — {p.role_title ?? "—"} — {p.type ?? "—"} — {p.date_sent ? formatDate(p.date_sent) : "—"}
               </SelectItem>

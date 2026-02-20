@@ -272,6 +272,18 @@ export async function updateInteraction(
   if (data.process_id) revalidatePath(`/processes/${data.process_id}`);
 }
 
+export async function deleteInteraction(id: string) {
+  const userId = await getCurrentUserId();
+  if (!userId) redirect("/login");
+
+  await prisma.interaction.deleteMany({
+    where: { id, userId },
+  });
+
+  revalidatePath("/interactions");
+  revalidatePath("/");
+}
+
 /** Interactions for a company (e.g. "Attach existing" modal). Returns id, roleTitle, type, dateSent, process_id. */
 export async function getInteractionsForCompany(companyId: string): Promise<
   { id: string; role_title: string | null; type: string | null; date_sent: string | null; process_id: string | null; contact?: { first_name: string | null; last_name: string | null } | null }[]

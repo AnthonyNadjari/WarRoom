@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
   Building2,
   Users,
   MessageSquare,
@@ -14,10 +13,9 @@ import {
 import { cn } from "@/lib/utils";
 
 const nav = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/", label: "Interactions", icon: MessageSquare },
   { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/contacts", label: "Contacts", icon: Users },
-  { href: "/interactions", label: "Interactions", icon: MessageSquare },
   { href: "/processes", label: "Processes", icon: FolderKanban },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

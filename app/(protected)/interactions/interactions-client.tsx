@@ -3,13 +3,14 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Filter, X } from "lucide-react";
+import { Plus, Filter, X, Trash2 } from "lucide-react";
 import { getFollowUpSeverity } from "@/lib/follow-up";
 import {
   getInteractionsWithRelations,
   createInteraction,
   getContactsForCompany,
   getRecruitersForSelect,
+  deleteInteraction,
 } from "@/app/actions/interactions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -268,7 +269,7 @@ function NewInteractionDialog({
                   <SelectValue placeholder="Select company" />
                 </SelectTrigger>
                 <SelectContent>
-                  {companies.map((c) => (
+                  {companies.filter((c) => c.id != null && c.id !== "").map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.name}
                     </SelectItem>
@@ -308,7 +309,7 @@ function NewInteractionDialog({
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {contacts.map((c) => (
+                  {contacts.filter((c) => c.id != null && c.id !== "").map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {[c.firstName, c.lastName].filter(Boolean).join(" ") ||
                         "Unnamed"}
@@ -445,12 +446,13 @@ function NewInteractionDialog({
             {sourceType === "Via Recruiter" && (
               <div className="space-y-2">
                 <Label>Recruiter *</Label>
-                <Select value={recruiterId} onValueChange={setRecruiterId}>
+                <Select value={recruiterId || "__none__"} onValueChange={(v) => setRecruiterId(v === "__none__" ? "" : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select recruiter" />
                   </SelectTrigger>
                   <SelectContent>
-                    {recruiters.map((r) => (
+                    <SelectItem value="__none__">—</SelectItem>
+                    {recruiters.filter((r) => r.id != null && r.id !== "").map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         {r.name}
                       </SelectItem>
@@ -620,7 +622,7 @@ function InteractionsInner(props: {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All companies</SelectItem>
-              {companies.map((c) => (
+              {companies.filter((c) => c.id != null && c.id !== "").map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name}
                 </SelectItem>
@@ -661,7 +663,7 @@ function InteractionsInner(props: {
               <SelectContent>
                 <SelectItem value="all">All processes</SelectItem>
                 <SelectItem value="none">No process</SelectItem>
-                {processes.map((p) => (
+                {processes.filter((p) => p.id != null && p.id !== "").map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.company?.name ?? "—"} — {p.role_title}
                   </SelectItem>
@@ -713,6 +715,7 @@ function InteractionsInner(props: {
                   <th className="px-4 py-3 font-medium">Company</th>
                   <th className="px-4 py-3 font-medium">Contact</th>
                   <th className="px-4 py-3 font-medium">Role</th>
+                  <th className="px-4 py-3 font-medium">Process</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Priority</th>
                   <th className="px-4 py-3 font-medium">Date</th>
@@ -771,19 +774,21 @@ function InteractionsInner(props: {
                         {name}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
+                        {i.role_title ?? "—"}
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">
                         <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-1.5">
-                            {i.role_title ?? "—"}
-                            {i.process && (
-                              <Link
-                                href={`/processes/${i.process.id}`}
-                                onClick={(e) => e.stopPropagation()}
-                                className="inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
-                              >
-                                {i.process.role_title}
-                              </Link>
-                            )}
-                          </div>
+                          {i.process ? (
+                            <Link
+                              href={`/processes/${i.process.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex w-fit items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
+                            >
+                              {i.process.role_title}
+                            </Link>
+                          ) : (
+                            "—"
+                          )}
                           {i.parentInteraction && (
                             <Link
                               href={`/interactions?highlight=${i.parentInteraction.id}`}
@@ -908,25 +913,46 @@ function InteractionsInner(props: {
       >
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>
-              {selectedInteraction
-                ? (selectedInteraction.company as { name?: string })?.name +
-                  " · " +
-                  (selectedInteraction.contact
-                    ? [
-                        selectedInteraction.contact.first_name,
-                        selectedInteraction.contact.last_name,
-                      ]
-                        .filter(Boolean)
-                        .join(" ")
-                    : "")
-                : "Interaction"}
-            </SheetTitle>
-            {selectedInteraction?.updated_at && (
-              <p className="text-xs text-muted-foreground">
-                Last updated: {formatDate(selectedInteraction.updated_at)}
-              </p>
-            )}
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <SheetTitle>
+                  {selectedInteraction
+                    ? (selectedInteraction.company as { name?: string })?.name +
+                      " · " +
+                      (selectedInteraction.contact
+                        ? [
+                            selectedInteraction.contact.first_name,
+                            selectedInteraction.contact.last_name,
+                          ]
+                            .filter(Boolean)
+                            .join(" ")
+                        : "")
+                    : "Interaction"}
+                </SheetTitle>
+                {selectedInteraction?.updated_at && (
+                  <p className="text-xs text-muted-foreground">
+                    Last updated: {formatDate(selectedInteraction.updated_at)}
+                  </p>
+                )}
+              </div>
+              {selectedInteraction && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  aria-label="Delete interaction"
+                  onClick={async () => {
+                    if (!window.confirm("Delete this interaction? This cannot be undone.")) return;
+                    await deleteInteraction(selectedInteraction.id);
+                    setSelectedId(null);
+                    refetch();
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
             {selectedInteraction?.parentInteraction && (
               <Link
                 href={`/interactions?highlight=${selectedInteraction.parentInteraction.id}`}

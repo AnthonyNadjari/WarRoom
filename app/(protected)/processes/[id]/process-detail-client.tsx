@@ -165,7 +165,7 @@ function AddInteractionDialog({
                 <SelectValue placeholder="Select contact" />
               </SelectTrigger>
               <SelectContent>
-                {contacts.map((c) => (
+                {contacts.filter((c) => c.id != null && c.id !== "").map((c) => (
                   <SelectItem key={c.id} value={c.id}>
                     {[c.firstName, c.lastName].filter(Boolean).join(" ") || "—"}
                   </SelectItem>
