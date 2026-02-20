@@ -112,22 +112,6 @@ const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
 >(({ className, children, value, ...props }, ref) => {
-  // #region agent log
-  if (value === "") {
-    const stack = typeof Error !== "undefined" ? new Error().stack : "";
-    fetch("http://127.0.0.1:7242/ingest/29ad99dc-90eb-4dd5-9d38-e3698c8ec36b", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "select.tsx:SelectItem",
-        message: "SelectItem received empty string value",
-        data: { value: String(value), stack: (stack || "").slice(0, 500) },
-        timestamp: Date.now(),
-        hypothesisId: "H1-empty-value",
-      }),
-    }).catch(() => {});
-  }
-  // #endregion
   return (
     <SelectPrimitive.Item
       ref={ref}
