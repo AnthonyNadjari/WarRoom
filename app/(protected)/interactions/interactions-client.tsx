@@ -45,6 +45,7 @@ import type {
   Company,
 } from "@/types/database";
 import { cn, formatDate } from "@/lib/utils";
+import { DateInput } from "@/components/ui/date-input";
 
 type InteractionRow = Interaction & {
   company?: { id: string; name: string; website_domain?: string | null; logo_url?: string | null } | null;
@@ -409,11 +410,7 @@ function NewInteractionDialog({
             </div>
             <div className="space-y-2">
               <Label>Date sent</Label>
-              <Input
-                type="date"
-                value={dateSent}
-                onChange={(e) => setDateSent(e.target.value)}
-              />
+              <DateInput value={dateSent} onChange={setDateSent} placeholder="JJ/MM/AAAA" />
             </div>
           </div>
           <div className="space-y-2">
@@ -671,18 +668,16 @@ function InteractionsInner(props: {
               </SelectContent>
             </Select>
           )}
-          <Input
-            type="date"
-            placeholder="From"
+          <DateInput
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+            onChange={setDateFrom}
+            placeholder="Du"
             className="w-[140px]"
           />
-          <Input
-            type="date"
-            placeholder="To"
+          <DateInput
             value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
+            onChange={setDateTo}
+            placeholder="Au"
             className="w-[140px]"
           />
         </div>
@@ -743,6 +738,7 @@ function InteractionsInner(props: {
                       }
                       className={cn(
                         "border-b transition-colors hover:bg-accent/30 cursor-pointer",
+                        (i.process_id || i.parent_interaction_id) && "border-l-2 border-l-primary/40",
                         highlightId === i.id && "bg-accent",
                         severity === "red" &&
                           "bg-red-50/50 dark:bg-red-950/20",
@@ -843,6 +839,7 @@ function InteractionsInner(props: {
                     onClick={() => setSelectedId(i.id)}
                     className={cn(
                       "block w-full rounded-xl border bg-card p-4 text-left text-sm transition-all hover:shadow-sm",
+                      (i.process_id || i.parent_interaction_id) && "border-l-4 border-l-primary/50",
                       severity === "red" &&
                         "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30",
                       severity === "orange" &&

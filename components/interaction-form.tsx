@@ -7,7 +7,7 @@ import {
   getRecruitersForSelect,
   getInteractionsForParentSelect,
 } from "@/app/actions/interactions";
-import { updateProcess, getProcessesForCompany } from "@/app/actions/processes";
+import { updateProcess, getProcessesForSelect } from "@/app/actions/processes";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatDate } from "@/lib/utils";
+import { DateInput } from "@/components/ui/date-input";
 import type {
   Interaction,
   InteractionStatus,
@@ -104,8 +105,7 @@ export function InteractionForm(props: {
   }, [sourceType, recruiters.length]);
 
   useEffect(() => {
-    if (!interaction.company_id) return;
-    getProcessesForCompany(interaction.company_id).then((list) =>
+    getProcessesForSelect().then((list) =>
       setProcessOptions(
         list.map((p) => ({
           id: p.id,
@@ -115,7 +115,7 @@ export function InteractionForm(props: {
         }))
       )
     );
-  }, [interaction.company_id]);
+  }, []);
 
   useEffect(() => {
     getInteractionsForParentSelect().then((list) =>
@@ -336,28 +336,16 @@ export function InteractionForm(props: {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Date sent</Label>
-          <Input
-            type="date"
-            value={dateSent}
-            onChange={(e) => patch(setDateSent, e.target.value)}
-          />
+          <DateInput value={dateSent} onChange={(v) => patch(setDateSent, v)} placeholder="JJ/MM/AAAA" />
         </div>
         <div className="space-y-2">
           <Label>Last update</Label>
-          <Input
-            type="date"
-            value={lastUpdate}
-            onChange={(e) => patch(setLastUpdate, e.target.value)}
-          />
+          <DateInput value={lastUpdate} onChange={(v) => patch(setLastUpdate, v)} placeholder="JJ/MM/AAAA" />
         </div>
       </div>
       <div className="space-y-2">
         <Label>Next follow-up date</Label>
-        <Input
-          type="date"
-          value={nextFollowUpDate}
-          onChange={(e) => patch(setNextFollowUpDate, e.target.value)}
-        />
+        <DateInput value={nextFollowUpDate} onChange={(v) => patch(setNextFollowUpDate, v)} placeholder="JJ/MM/AAAA" />
       </div>
       <div className="space-y-2">
         <Label>Outcome</Label>
