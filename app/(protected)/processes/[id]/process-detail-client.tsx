@@ -12,9 +12,16 @@ import {
   Link2,
   Trash2,
   MessageSquare,
+  CheckCircle2,
+  Circle,
+  StickyNote,
+  ChevronDown,
+  ChevronRight,
+  X,
 } from "lucide-react";
 import { updateProcess, deleteProcess } from "@/app/actions/processes";
 import { createInteraction, getInteractionsForCompany, updateInteraction } from "@/app/actions/interactions";
+import { createProcessNote, deleteProcessNote } from "@/app/actions/process-notes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +57,8 @@ import type {
   InteractionWithRelations,
   InteractionType,
   InteractionGlobalCategory,
+  InteractionStage,
+  ProcessNote,
 } from "@/types/database";
 import { cn, formatDate } from "@/lib/utils";
 
@@ -67,6 +76,28 @@ const STATUS_COLORS: Record<string, string> = {
   Offer: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
   Rejected: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
   Closed: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
+};
+
+const STAGE_ORDER: (InteractionStage | "Ungrouped")[] = [
+  "Application",
+  "Screening",
+  "Phone Interview",
+  "Technical",
+  "Final Round",
+  "Offer Stage",
+  "Other",
+  "Ungrouped",
+];
+
+const STAGE_BORDER_COLORS: Record<string, string> = {
+  Application: "border-l-blue-500",
+  Screening: "border-l-cyan-500",
+  "Phone Interview": "border-l-teal-500",
+  Technical: "border-l-amber-500",
+  "Final Round": "border-l-purple-500",
+  "Offer Stage": "border-l-emerald-500",
+  Other: "border-l-gray-400",
+  Ungrouped: "border-l-gray-300 dark:border-l-gray-600",
 };
 
 type ChildProcess = {
@@ -92,6 +123,16 @@ const INTERACTION_TYPES: InteractionType[] = [
   "Cold Email",
   "Call",
   "Referral",
+];
+
+const INTERACTION_STAGES: InteractionStage[] = [
+  "Application",
+  "Screening",
+  "Phone Interview",
+  "Technical",
+  "Final Round",
+  "Offer Stage",
+  "Other",
 ];
 
 const GLOBAL_CATEGORIES: InteractionGlobalCategory[] = [
@@ -121,6 +162,7 @@ function AddInteractionDialog({
   const [roleTitleManual, setRoleTitleManual] = useState(false);
   const [type, setType] = useState("");
   const [category, setCategory] = useState("");
+  const [stage, setStage] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Autofill roleTitle from contact's exactTitle only when roleTitle is empty
@@ -140,6 +182,7 @@ function AddInteractionDialog({
         role_title: roleTitle.trim() || null,
         type: (type || null) as InteractionType | null,
         global_category: (category || null) as InteractionGlobalCategory | null,
+        stage: (stage || null) as InteractionStage | null,
         date_sent: new Date().toISOString().slice(0, 10),
         process_id: processId,
       });
@@ -167,7 +210,7 @@ function AddInteractionDialog({
               <SelectContent>
                 {contacts.filter((c) => c.id != null && c.id !== "").map((c) => (
                   <SelectItem key={c.id} value={c.id}>
-                    {[c.firstName, c.lastName].filter(Boolean).join(" ") || "—"}
+                    {[c.firstName, c.lastName].filter(Boolean).join(" ") || "\u2014"}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -226,6 +269,21 @@ function AddInteractionDialog({
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Stage</Label>
+            <Select value={stage} onValueChange={setStage}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select stage" />
+              </SelectTrigger>
+              <SelectContent>
+                {INTERACTION_STAGES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <Button
             className="w-full"
@@ -292,7 +350,7 @@ function AttachExistingInteractionDialog({
         </DialogHeader>
         <div className="max-h-80 overflow-y-auto space-y-2 pt-2">
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <p className="text-sm text-muted-foreground">Loading...</p>
           ) : list.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No other interactions for this company to attach.
@@ -300,15 +358,15 @@ function AttachExistingInteractionDialog({
           ) : (
             list.map((i) => {
               const name = i.contact
-                ? [i.contact.first_name, i.contact.last_name].filter(Boolean).join(" ") || "—"
-                : "—";
+                ? [i.contact.first_name, i.contact.last_name].filter(Boolean).join(" ") || "\u2014"
+                : "\u2014";
               return (
                 <div
                   key={i.id}
                   className="flex items-center justify-between rounded-lg border p-3 text-sm"
                 >
                   <div>
-                    <span className="font-medium">{i.role_title ?? "—"}</span>
+                    <span className="font-medium">{i.role_title ?? "\u2014"}</span>
                     <span className="text-muted-foreground"> · {name}</span>
                     {i.date_sent && (
                       <span className="ml-1 text-xs text-muted-foreground">
@@ -321,7 +379,7 @@ function AttachExistingInteractionDialog({
                     disabled={!!attachingId}
                     onClick={() => handleAttach(i.id)}
                   >
-                    {attachingId === i.id ? "Attaching…" : "Attach"}
+                    {attachingId === i.id ? "Attaching..." : "Attach"}
                   </Button>
                 </div>
               );
@@ -335,11 +393,12 @@ function AttachExistingInteractionDialog({
 
 export function ProcessDetailClient({
   process,
-  interactions,
+  interactions: initialInteractions,
   childProcesses,
   allProcesses,
   companies,
   contacts,
+  notes: initialNotes,
 }: {
   process: ProcessWithRelations;
   interactions: InteractionWithRelations[];
@@ -347,11 +406,33 @@ export function ProcessDetailClient({
   allProcesses: ProcessSelect[];
   companies: CompanySelect[];
   contacts: ContactSelect[];
+  notes: ProcessNote[];
 }) {
   const router = useRouter();
   const [status, setStatus] = useState(process.status);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [attachExistingOpen, setAttachExistingOpen] = useState(false);
+
+  // Local state for optimistic updates
+  const [localInteractions, setLocalInteractions] = useState(initialInteractions);
+  const [localNotes, setLocalNotes] = useState(initialNotes);
+  const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({});
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  // Note creation state
+  const [showNoteInput, setShowNoteInput] = useState(false);
+  const [noteContent, setNoteContent] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+
+  // Sync from server on re-render (e.g. after router.refresh)
+  useEffect(() => {
+    setLocalInteractions(initialInteractions);
+  }, [initialInteractions]);
+
+  useEffect(() => {
+    setLocalNotes(initialNotes);
+  }, [initialNotes]);
 
   const handleStatusChange = async (newStatus: string) => {
     setStatus(newStatus as ProcessStatus);
@@ -362,6 +443,93 @@ export function ProcessDetailClient({
   const handleDelete = async () => {
     await deleteProcess(process.id);
     router.push("/processes");
+  };
+
+  // Toggle completed status with optimistic update
+  const handleToggleCompleted = async (interaction: InteractionWithRelations) => {
+    const newCompleted = !interaction.completed;
+    setTogglingId(interaction.id);
+
+    // Optimistic update
+    setLocalInteractions((prev) =>
+      prev.map((i) => (i.id === interaction.id ? { ...i, completed: newCompleted } : i))
+    );
+
+    try {
+      await updateInteraction(interaction.id, { completed: newCompleted });
+    } catch {
+      // Revert on failure
+      setLocalInteractions((prev) =>
+        prev.map((i) => (i.id === interaction.id ? { ...i, completed: !newCompleted } : i))
+      );
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
+  // Group interactions by stage
+  const stageGroups = (() => {
+    const groups: Record<string, InteractionWithRelations[]> = {};
+    for (const stage of STAGE_ORDER) {
+      groups[stage] = [];
+    }
+    for (const interaction of localInteractions) {
+      const stage = interaction.stage ?? "Ungrouped";
+      if (!groups[stage]) groups[stage] = [];
+      groups[stage].push(interaction);
+    }
+    return groups;
+  })();
+
+  // Filter out empty stages
+  const activeStages = STAGE_ORDER.filter((stage) => stageGroups[stage].length > 0);
+
+  const toggleStage = (stage: string) => {
+    setCollapsedStages((prev) => ({ ...prev, [stage]: !prev[stage] }));
+  };
+
+  // Note handlers
+  const handleSaveNote = async () => {
+    if (!noteContent.trim()) return;
+    setSavingNote(true);
+    try {
+      const noteId = await createProcessNote({
+        process_id: process.id,
+        content: noteContent.trim(),
+      });
+      // Optimistic add
+      setLocalNotes((prev) => [
+        ...prev,
+        {
+          id: noteId,
+          user_id: process.user_id,
+          process_id: process.id,
+          content: noteContent.trim(),
+          created_at: new Date().toISOString(),
+        },
+      ]);
+      setNoteContent("");
+      setShowNoteInput(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingNote(false);
+    }
+  };
+
+  const handleDeleteNote = async (noteId: string) => {
+    setDeletingNoteId(noteId);
+    const prevNotes = localNotes;
+    // Optimistic remove
+    setLocalNotes((prev) => prev.filter((n) => n.id !== noteId));
+    try {
+      await deleteProcessNote(noteId);
+    } catch {
+      // Revert on failure
+      setLocalNotes(prevNotes);
+    } finally {
+      setDeletingNoteId(null);
+    }
   };
 
   return (
@@ -406,7 +574,7 @@ export function ProcessDetailClient({
               </div>
             </div>
           </div>
-          {/* Actions row — stacks below on mobile */}
+          {/* Actions row */}
           <div className="flex items-center gap-2 pl-11 sm:pl-0 sm:justify-end">
             <Select value={status} onValueChange={handleStatusChange}>
               <SelectTrigger className="w-32 sm:w-36">
@@ -453,7 +621,7 @@ export function ProcessDetailClient({
               href={`/processes/${process.sourceProcess.id}`}
               className="font-medium text-violet-600 hover:underline dark:text-violet-400"
             >
-              {process.sourceProcess.company?.name ?? "—"} — {process.sourceProcess.role_title}
+              {process.sourceProcess.company?.name ?? "\u2014"} — {process.sourceProcess.role_title}
             </Link>
           </div>
         )}
@@ -476,7 +644,7 @@ export function ProcessDetailClient({
                     className="flex items-center justify-between px-4 py-2.5 text-sm hover:bg-accent/50 transition-colors"
                   >
                     <span>
-                      <span className="font-medium">{cp.company?.name ?? "—"}</span>
+                      <span className="font-medium">{cp.company?.name ?? "\u2014"}</span>
                       <span className="text-muted-foreground"> — {cp.role_title}</span>
                     </span>
                     <span
@@ -494,13 +662,13 @@ export function ProcessDetailClient({
           </div>
         )}
 
-        {/* Interactions timeline */}
+        {/* Pipeline Progress */}
         <div className="glass-card overflow-hidden">
           <div className="flex items-center gap-2 border-b px-4 py-2.5">
             <MessageSquare className="h-4 w-4" />
-            <span className="text-sm font-semibold">Interactions</span>
+            <span className="text-sm font-semibold">Pipeline</span>
             <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
-              {interactions.length}
+              {localInteractions.length}
             </span>
             <div className="flex items-center gap-1">
               <Button size="sm" variant="ghost" onClick={() => setAttachExistingOpen(true)}>
@@ -513,72 +681,229 @@ export function ProcessDetailClient({
             </div>
           </div>
           <div className="p-2">
-            {interactions.length === 0 ? (
+            {localInteractions.length === 0 ? (
               <p className="px-3 py-6 text-center text-sm text-muted-foreground">
                 No interactions linked to this process yet.
               </p>
             ) : (
-              <ul className="space-y-0.5">
-                {interactions.map((i) => {
-                  const severity = getFollowUpSeverity(i);
-                  const contact = i.contact;
-                  const name = contact
-                    ? [contact.first_name, contact.last_name].filter(Boolean).join(" ")
-                    : "—";
+              <div className="space-y-1">
+                {activeStages.map((stage) => {
+                  const isCollapsed = collapsedStages[stage] ?? false;
+                  const stageInteractions = stageGroups[stage];
+                  const completedCount = stageInteractions.filter((i) => i.completed).length;
+
                   return (
-                    <li key={i.id}>
-                      <Link
-                        href={`/interactions?highlight=${i.id}`}
+                    <div key={stage}>
+                      {/* Stage header */}
+                      <button
+                        type="button"
+                        onClick={() => toggleStage(stage)}
                         className={cn(
-                          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all hover:bg-accent/50",
-                          severity === "red" && "bg-red-50 dark:bg-red-950/30",
-                          severity === "orange" && "bg-amber-50 dark:bg-amber-950/30"
+                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50",
+                          "border-l-2",
+                          STAGE_BORDER_COLORS[stage] ?? "border-l-gray-300"
                         )}
                       >
-                        <div
-                          className={cn(
-                            "h-2 w-2 shrink-0 rounded-full",
-                            severity === "red"
-                              ? "bg-red-500"
-                              : severity === "orange"
-                                ? "bg-amber-500"
-                                : "bg-blue-500"
-                          )}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <span className="font-medium">{name}</span>
-                          {i.type && (
-                            <span className="text-muted-foreground"> · {i.type}</span>
-                          )}
+                        {isCollapsed ? (
+                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          {stage}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {completedCount}/{stageInteractions.length}
+                        </span>
+                      </button>
+
+                      {/* Stage interactions */}
+                      {!isCollapsed && (
+                        <div className="ml-4 space-y-0.5 pb-1">
+                          {stageInteractions.map((i) => {
+                            const severity = getFollowUpSeverity(i);
+                            const contact = i.contact;
+                            const name = contact
+                              ? [contact.first_name, contact.last_name].filter(Boolean).join(" ")
+                              : "\u2014";
+
+                            return (
+                              <div
+                                key={i.id}
+                                className={cn(
+                                  "group flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition-all",
+                                  severity === "red" && "bg-red-50 dark:bg-red-950/30",
+                                  severity === "orange" && "bg-amber-50 dark:bg-amber-950/30"
+                                )}
+                              >
+                                {/* Toggle completed button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleCompleted(i)}
+                                  disabled={togglingId === i.id}
+                                  className="shrink-0 transition-colors hover:scale-110"
+                                  title={i.completed ? "Mark as incomplete" : "Mark as complete"}
+                                >
+                                  {i.completed ? (
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                                  ) : (
+                                    <Circle className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                                  )}
+                                </button>
+
+                                {/* Interaction details - clickable to navigate */}
+                                <Link
+                                  href={`/interactions?highlight=${i.id}`}
+                                  className="min-w-0 flex-1 hover:underline decoration-muted-foreground/30 underline-offset-2"
+                                >
+                                  <span className={cn("font-medium", i.completed && "line-through text-muted-foreground")}>
+                                    {i.type ?? "Interaction"}
+                                  </span>
+                                  <span className="text-muted-foreground"> · {name}</span>
+                                  <span className="ml-1 text-xs text-muted-foreground">
+                                    · {i.date_sent ? formatDate(i.date_sent) : "\u2014"}
+                                  </span>
+                                </Link>
+
+                                {/* Right-side badges */}
+                                <div className="flex flex-wrap items-center gap-1 shrink-0">
+                                  {i.source_type === "Via Recruiter" && i.recruiter && (
+                                    <span className="hidden sm:inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                                      via {i.recruiter.name}
+                                    </span>
+                                  )}
+                                  <span
+                                    className={cn(
+                                      "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                                      i.status === "Interview"
+                                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                                        : i.status === "Offer"
+                                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                                          : i.status === "Rejected"
+                                            ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                                            : "bg-muted text-muted-foreground"
+                                    )}
+                                  >
+                                    {i.status}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {/* Show truncated comments for interactions that have them */}
+                          {stageInteractions
+                            .filter((i) => i.comment)
+                            .map((i) => (
+                              <div key={`comment-${i.id}`} className="ml-6 pl-2 pb-0.5">
+                                <p className="text-xs text-muted-foreground italic truncate max-w-md">
+                                  &ldquo;{i.comment}&rdquo;
+                                </p>
+                              </div>
+                            ))}
                         </div>
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
-                          {i.source_type === "Via Recruiter" && i.recruiter && (
-                            <span className="hidden sm:inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-                              via {i.recruiter.name}
-                            </span>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {i.date_sent ? formatDate(i.date_sent) : "—"}
-                          </span>
-                          <span
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                              i.status === "Interview"
-                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                                : i.status === "Offer"
-                                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
-                                  : i.status === "Rejected"
-                                    ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
-                                    : "bg-muted text-muted-foreground"
-                            )}
-                          >
-                            {i.status}
-                          </span>
-                        </div>
-                      </Link>
-                    </li>
+                      )}
+                    </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Activity Log (Notes) */}
+        <div className="glass-card overflow-hidden">
+          <div className="flex items-center gap-2 border-b px-4 py-2.5">
+            <StickyNote className="h-4 w-4" />
+            <span className="text-sm font-semibold">Notes</span>
+            <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+              {localNotes.length}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowNoteInput(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Add Note
+            </Button>
+          </div>
+          <div className="p-3 space-y-2">
+            {/* Inline note input */}
+            {showNoteInput && (
+              <div className="space-y-2 rounded-lg border border-dashed p-3">
+                <textarea
+                  className="w-full resize-none rounded-md border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1"
+                  rows={3}
+                  placeholder="Write a note..."
+                  value={noteContent}
+                  onChange={(e) => setNoteContent(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                      handleSaveNote();
+                    }
+                    if (e.key === "Escape") {
+                      setShowNoteInput(false);
+                      setNoteContent("");
+                    }
+                  }}
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-muted-foreground">
+                    Ctrl+Enter to save, Esc to cancel
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setShowNoteInput(false);
+                        setNoteContent("");
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={!noteContent.trim() || savingNote}
+                      onClick={handleSaveNote}
+                    >
+                      {savingNote ? "Saving..." : "Save"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {localNotes.length === 0 && !showNoteInput ? (
+              <p className="px-3 py-4 text-center text-sm text-muted-foreground">
+                No notes yet. Add one to track your progress.
+              </p>
+            ) : (
+              <ul className="space-y-1">
+                {localNotes.map((note) => (
+                  <li
+                    key={note.id}
+                    className="group flex items-start gap-2 rounded-lg px-3 py-2 text-sm hover:bg-accent/50 transition-colors"
+                  >
+                    <StickyNote className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-500" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(note.created_at)}
+                      </span>
+                      <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteNote(note.id)}
+                      disabled={deletingNoteId === note.id}
+                      className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                      title="Delete note"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
               </ul>
             )}
           </div>

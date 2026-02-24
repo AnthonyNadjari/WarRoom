@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Filter, X, Trash2 } from "lucide-react";
+import { Plus, Filter, X, Trash2, FolderKanban, List, CheckCircle2, Circle, ChevronDown, ChevronRight } from "lucide-react";
 import { getFollowUpSeverity } from "@/lib/follow-up";
 import {
   getInteractionsWithRelations,
@@ -498,6 +498,13 @@ function InteractionsInner(props: {
   const [interactions, setInteractions] = useState(props.initialInteractions);
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<"flat" | "grouped">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("warroom-view-mode") as "flat" | "grouped") || "flat";
+    }
+    return "flat";
+  });
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const selectedInteraction = selectedId
     ? interactions.find((i) => i.id === selectedId)
     : null;
@@ -544,6 +551,35 @@ function InteractionsInner(props: {
     dateTo,
   ]);
 
+  useEffect(() => {
+    localStorage.setItem("warroom-view-mode", viewMode);
+  }, [viewMode]);
+
+  function toggleGroup(processId: string) {
+    setExpandedGroups((prev) => ({ ...prev, [processId]: !prev[processId] }));
+  }
+
+  const grouped = useMemo(() => {
+    if (viewMode !== "grouped") return null;
+    const processMap = new Map<string, { process: NonNullable<InteractionRow["process"]>; items: InteractionRow[] }>();
+    const ungrouped: InteractionRow[] = [];
+
+    for (const i of filtered) {
+      if (i.process_id && i.process) {
+        const existing = processMap.get(i.process_id);
+        if (existing) {
+          existing.items.push(i);
+        } else {
+          processMap.set(i.process_id, { process: i.process, items: [i] });
+        }
+      } else {
+        ungrouped.push(i);
+      }
+    }
+
+    return { processes: Array.from(processMap.entries()), ungrouped };
+  }, [filtered, viewMode]);
+
   async function refetch() {
     const data = await getInteractionsWithRelations();
     setInteractions(data as InteractionRow[]);
@@ -569,7 +605,29 @@ function InteractionsInner(props: {
             {hasFilters ? " (filtered)" : ""}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 rounded-lg border p-0.5">
+            <button
+              onClick={() => setViewMode("flat")}
+              className={cn(
+                "rounded-md p-1.5 text-xs transition-colors",
+                viewMode === "flat" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Flat view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setViewMode("grouped")}
+              className={cn(
+                "rounded-md p-1.5 text-xs transition-colors",
+                viewMode === "grouped" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Grouped by process"
+            >
+              <FolderKanban className="h-4 w-4" />
+            </button>
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -701,12 +759,135 @@ function InteractionsInner(props: {
             </Button>
           )}
         </div>
+      ) : viewMode === "grouped" && grouped ? (
+        <div className="space-y-3">
+          {grouped.processes.map(([processId, { process, items }]) => (
+            <div key={processId} className="glass-card overflow-hidden">
+              <button
+                onClick={() => toggleGroup(processId)}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+              >
+                {expandedGroups[processId] ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium">{process.role_title}</span>
+                </div>
+                <StatusBadge status={process.status} />
+                <span className="text-xs text-muted-foreground ml-1">{items.length}</span>
+              </button>
+              {expandedGroups[processId] && (
+                <div className="border-t divide-y">
+                  {items.map((i) => {
+                    const contact = i.contact;
+                    const name = contact
+                      ? [contact.first_name, contact.last_name].filter(Boolean).join(" ")
+                      : "—";
+                    return (
+                      <button
+                        key={i.id}
+                        type="button"
+                        onClick={() => setSelectedId(i.id)}
+                        className={cn(
+                          "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-accent/30 cursor-pointer",
+                          highlightId === i.id && "bg-accent"
+                        )}
+                      >
+                        {i.completed ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                        ) : (
+                          <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium truncate">{name}</span>
+                            <span className="text-muted-foreground truncate">{i.role_title ?? ""}</span>
+                          </div>
+                          {i.comment && (
+                            <p className="text-xs text-muted-foreground truncate max-w-[300px] mt-0.5">
+                              {i.comment.length > 80 ? i.comment.slice(0, 80) + "..." : i.comment}
+                            </p>
+                          )}
+                        </div>
+                        <StatusBadge status={i.status} />
+                        {i.priority && <PriorityDot priority={i.priority} />}
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {i.date_sent ? formatDate(i.date_sent) : ""}
+                        </span>
+                        <FollowUpBadge interaction={i} />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+          {grouped.ungrouped.length > 0 && (
+            <div className="glass-card overflow-hidden">
+              <button
+                onClick={() => toggleGroup("__ungrouped__")}
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-accent/50 transition-colors"
+              >
+                {expandedGroups["__ungrouped__"] ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-muted-foreground">Ungrouped</span>
+                </div>
+                <span className="text-xs text-muted-foreground">{grouped.ungrouped.length}</span>
+              </button>
+              {expandedGroups["__ungrouped__"] && (
+                <div className="border-t divide-y">
+                  {grouped.ungrouped.map((i) => {
+                    const company = i.company as { name?: string } | null;
+                    const contact = i.contact;
+                    const name = contact
+                      ? [contact.first_name, contact.last_name].filter(Boolean).join(" ")
+                      : "—";
+                    return (
+                      <button
+                        key={i.id}
+                        type="button"
+                        onClick={() => setSelectedId(i.id)}
+                        className={cn(
+                          "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-accent/30 cursor-pointer",
+                          highlightId === i.id && "bg-accent"
+                        )}
+                      >
+                        {i.completed ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                        ) : (
+                          <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium truncate">{company?.name ?? "—"}</span>
+                            <span className="text-muted-foreground truncate">{name}</span>
+                            <span className="text-muted-foreground truncate">{i.role_title ?? ""}</span>
+                          </div>
+                          {i.comment && (
+                            <p className="text-xs text-muted-foreground truncate max-w-[300px] mt-0.5">
+                              {i.comment.length > 80 ? i.comment.slice(0, 80) + "..." : i.comment}
+                            </p>
+                          )}
+                        </div>
+                        <StatusBadge status={i.status} />
+                        {i.priority && <PriorityDot priority={i.priority} />}
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {i.date_sent ? formatDate(i.date_sent) : ""}
+                        </span>
+                        <FollowUpBadge interaction={i} />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       ) : (
         <>
           <div className="glass-card hidden overflow-hidden md:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                  <th className="px-4 py-3 font-medium"></th>
                   <th className="px-4 py-3 font-medium">Company</th>
                   <th className="px-4 py-3 font-medium">Contact</th>
                   <th className="px-4 py-3 font-medium">Role</th>
@@ -747,6 +928,13 @@ function InteractionsInner(props: {
                       )}
                     >
                       <td className="px-4 py-3">
+                        {i.completed ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           <Link
                             href={"/companies/" + i.company_id}
@@ -767,7 +955,14 @@ function InteractionsInner(props: {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {name}
+                        <div>
+                          {name}
+                          {i.comment && (
+                            <p className="text-xs text-muted-foreground truncate max-w-[300px] mt-0.5">
+                              {i.comment.length > 80 ? i.comment.slice(0, 80) + "..." : i.comment}
+                            </p>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {i.role_title ?? "—"}
@@ -847,14 +1042,26 @@ function InteractionsInner(props: {
                     )}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold">
-                        {company?.name ?? "—"}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {i.completed ? (
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                        ) : (
+                          <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                        )}
+                        <span className="font-semibold">
+                          {company?.name ?? "—"}
+                        </span>
+                      </div>
                       <StatusBadge status={i.status} />
                     </div>
                     <div className="mt-1 text-muted-foreground">
                       {name} · {i.role_title ?? "—"}
                     </div>
+                    {i.comment && (
+                      <p className="text-xs text-muted-foreground truncate max-w-[300px] mt-0.5">
+                        {i.comment.length > 80 ? i.comment.slice(0, 80) + "..." : i.comment}
+                      </p>
+                    )}
                     {i.parentInteraction && (
                       <Link
                         href={`/interactions?highlight=${i.parentInteraction.id}`}

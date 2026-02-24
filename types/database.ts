@@ -58,6 +58,15 @@ export type InteractionSourceType = "Direct" | "Via Recruiter";
 
 export type ProcessStatus = "Active" | "Interviewing" | "Offer" | "Rejected" | "Closed";
 
+export type InteractionStage =
+  | "Application"
+  | "Screening"
+  | "Phone Interview"
+  | "Technical"
+  | "Final Round"
+  | "Offer Stage"
+  | "Other";
+
 export interface Process {
   id: string;
   user_id: string;
@@ -125,12 +134,22 @@ export interface Interaction {
   next_follow_up_date: string | null;
   outcome: Outcome | null;
   comment: string | null;
+  stage: InteractionStage | null;
+  completed: boolean;
   source_type: InteractionSourceType;
   recruiter_id: string | null;
   process_id: string | null;
   parent_interaction_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProcessNote {
+  id: string;
+  user_id: string;
+  process_id: string;
+  content: string;
+  created_at: string;
 }
 
 export type InteractionWithRelations = Interaction & {

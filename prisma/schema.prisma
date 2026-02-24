@@ -58,6 +58,7 @@ model User {
   contacts      Contact[]
   interactions  Interaction[]
   processes     Process[]
+  processNotes  ProcessNote[]
 
   @@map("users")
 }
@@ -156,6 +157,16 @@ enum ProcessStatus {
   Closed
 }
 
+enum InteractionStage {
+  Application
+  Screening
+  PhoneInterview @map("Phone Interview")
+  Technical
+  FinalRound     @map("Final Round")
+  OfferStage     @map("Offer Stage")
+  Other
+}
+
 // ---- WarRoom business models ----
 model Company {
   id            String      @id @default(uuid())
@@ -224,6 +235,8 @@ model Interaction {
   nextFollowUpDate     DateTime?                 @map("next_follow_up_date") @db.Date
   outcome              Outcome?
   comment              String?
+  stage                InteractionStage?
+  completed            Boolean                   @default(false)
   sourceType           InteractionSourceType     @default(Direct) @map("source_type")
   recruiterId          String?                   @map("recruiter_id")
   processId            String?                   @map("process_id")
@@ -267,9 +280,25 @@ model Process {
   sourceProcess   Process?  @relation("ProcessSource", fields: [sourceProcessId], references: [id], onDelete: SetNull)
   childProcesses  Process[] @relation("ProcessSource")
   interactions    Interaction[]
+  notes           ProcessNote[]
 
   @@index([userId])
   @@index([companyId])
   @@index([sourceProcessId])
   @@map("processes")
+}
+
+model ProcessNote {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  processId String   @map("process_id")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+
+  @@index([processId])
+  @@index([userId])
+  @@map("process_notes")
 }

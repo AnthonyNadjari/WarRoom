@@ -26,6 +26,7 @@ import type {
   Priority,
   InteractionGlobalCategory,
   InteractionType,
+  InteractionStage,
   Outcome,
 } from "@/types/database";
 
@@ -62,6 +63,16 @@ const TYPE_OPTIONS: InteractionType[] = [
 
 const OUTCOME_OPTIONS: Outcome[] = ["None", "Rejected", "Interview", "Offer"];
 
+const STAGE_OPTIONS: InteractionStage[] = [
+  "Application",
+  "Screening",
+  "Phone Interview",
+  "Technical",
+  "Final Round",
+  "Offer Stage",
+  "Other",
+];
+
 const DEBOUNCE_MS = 500;
 
 export function InteractionForm(props: {
@@ -87,6 +98,8 @@ export function InteractionForm(props: {
   );
   const [outcome, setOutcome] = useState<Outcome | "">(interaction.outcome ?? "");
   const [comment, setComment] = useState(interaction.comment ?? "");
+  const [stage, setStage] = useState<InteractionStage | "">(interaction.stage ?? "");
+  const [completed, setCompleted] = useState(interaction.completed ?? false);
   const [sourceType, setSourceType] = useState<InteractionSourceType>(
     interaction.source_type ?? "Direct"
   );
@@ -136,6 +149,8 @@ export function InteractionForm(props: {
       next_follow_up_date: nextFollowUpDate || null,
       outcome: outcome || null,
       comment: comment || null,
+      stage: stage || null,
+      completed,
       source_type: sourceType,
       recruiter_id: sourceType === "Via Recruiter" ? (recruiterId || null) : null,
       process_id: processId.trim() || null,
@@ -156,6 +171,8 @@ export function InteractionForm(props: {
     nextFollowUpDate,
     outcome,
     comment,
+    stage,
+    completed,
     sourceType,
     recruiterId,
     processId,
@@ -179,6 +196,8 @@ export function InteractionForm(props: {
     nextFollowUpDate,
     outcome,
     comment,
+    stage,
+    completed,
     sourceType,
     recruiterId,
     processId,
@@ -363,11 +382,44 @@ export function InteractionForm(props: {
       </div>
       <div className="space-y-2">
         <Label>Comment</Label>
-        <Input
+        <textarea
+          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
           value={comment}
           onChange={(e) => patch(setComment, e.target.value)}
+          placeholder="Notes about this interaction..."
+          rows={3}
         />
       </div>
+      <div className="flex items-center gap-3 rounded-lg border p-3">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={completed}
+          onClick={() => patch(setCompleted, !completed)}
+          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${completed ? "bg-emerald-500" : "bg-muted"}`}
+        >
+          <span className={`pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform ${completed ? "translate-x-4" : "translate-x-0"}`} />
+        </button>
+        <Label className="cursor-pointer" onClick={() => patch(setCompleted, !completed)}>
+          {completed ? "Completed" : "Mark as completed"}
+        </Label>
+      </div>
+      {processId && (
+        <div className="space-y-2">
+          <Label>Stage</Label>
+          <Select value={stage || "__none__"} onValueChange={(v) => patch(setStage, (v === "__none__" ? "" : v) as InteractionStage)}>
+            <SelectTrigger>
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">—</SelectItem>
+              {STAGE_OPTIONS.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div className="space-y-2">
         <Label>Attach to Process</Label>
         <Select value={processId || "__none__"} onValueChange={(v) => patch(setProcessId, v === "__none__" ? "" : v)}>

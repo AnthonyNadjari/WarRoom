@@ -4,6 +4,7 @@ import type {
   InteractionType as PrismaInteractionType,
   InteractionSourceType as PrismaInteractionSourceType,
   ProcessStatus as PrismaProcessStatus,
+  InteractionStage as PrismaInteractionStage,
 } from "@prisma/client";
 
 export function interactionStatusToApi(
@@ -104,4 +105,34 @@ export function processStatusToApi(status: PrismaProcessStatus): string {
 
 export function processStatusFromApi(status: string): PrismaProcessStatus {
   return status as PrismaProcessStatus;
+}
+
+// ---- InteractionStage ----
+
+const STAGE_PRISMA_TO_API: Record<PrismaInteractionStage, string> = {
+  Application: "Application",
+  Screening: "Screening",
+  PhoneInterview: "Phone Interview",
+  Technical: "Technical",
+  FinalRound: "Final Round",
+  OfferStage: "Offer Stage",
+  Other: "Other",
+};
+
+const STAGE_API_TO_PRISMA: Record<string, PrismaInteractionStage> = {
+  Application: "Application",
+  Screening: "Screening",
+  "Phone Interview": "PhoneInterview",
+  Technical: "Technical",
+  "Final Round": "FinalRound",
+  "Offer Stage": "OfferStage",
+  Other: "Other",
+};
+
+export function interactionStageToApi(stage: PrismaInteractionStage): string {
+  return STAGE_PRISMA_TO_API[stage] ?? stage;
+}
+
+export function interactionStageFromApi(stage: string): PrismaInteractionStage {
+  return (STAGE_API_TO_PRISMA[stage] ?? stage) as PrismaInteractionStage;
 }

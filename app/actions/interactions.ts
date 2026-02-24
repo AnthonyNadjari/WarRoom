@@ -11,6 +11,8 @@ import {
   interactionTypeFromApi,
   sourceTypeToApi,
   sourceTypeFromApi,
+  interactionStageToApi,
+  interactionStageFromApi,
 } from "@/lib/map-prisma";
 import type {
   InteractionGlobalCategory,
@@ -23,6 +25,7 @@ import type {
   InteractionType,
   InteractionStatus,
   InteractionSourceType,
+  InteractionStage,
 } from "@/types/database";
 
 type InteractionWithIncludes = PrismaInteraction & {
@@ -50,6 +53,8 @@ function mapInteraction(i: InteractionWithIncludes) {
     next_follow_up_date: i.nextFollowUpDate?.toISOString().slice(0, 10) ?? null,
     outcome: i.outcome,
     comment: i.comment,
+    stage: i.stage != null ? interactionStageToApi(i.stage) : null,
+    completed: i.completed ?? false,
     source_type: sourceTypeToApi(i.sourceType),
     recruiter_id: i.recruiterId,
     process_id: i.processId,
@@ -197,6 +202,8 @@ export async function updateInteraction(
     next_follow_up_date?: Date | string | null;
     outcome?: Outcome | null;
     comment?: string | null;
+    stage?: InteractionStage | string | null;
+    completed?: boolean;
     source_type?: InteractionSourceType | string;
     recruiter_id?: string | null;
     process_id?: string | null;
@@ -245,6 +252,8 @@ export async function updateInteraction(
     data.type != null ? interactionTypeFromApi(String(data.type)) : undefined;
   const sourceType =
     data.source_type != null ? sourceTypeFromApi(String(data.source_type)) : undefined;
+  const stage =
+    data.stage != null ? interactionStageFromApi(String(data.stage)) : data.stage === null ? null : undefined;
 
   await prisma.interaction.updateMany({
     where: { id, userId },
@@ -261,6 +270,8 @@ export async function updateInteraction(
         : undefined,
       outcome: data.outcome,
       comment: data.comment,
+      stage,
+      completed: data.completed,
       sourceType,
       recruiterId: data.recruiter_id,
       processId: data.process_id,
@@ -348,6 +359,8 @@ export async function createInteraction(data: {
   priority?: Priority | null;
   date_sent?: Date | string | null;
   comment?: string | null;
+  stage?: InteractionStage | string | null;
+  completed?: boolean;
   source_type?: InteractionSourceType | string;
   recruiter_id?: string | null;
   process_id?: string | null;
@@ -393,6 +406,10 @@ export async function createInteraction(data: {
     ? interactionTypeFromApi(String(data.type))
     : undefined;
 
+  const createStage = data.stage
+    ? interactionStageFromApi(String(data.stage))
+    : null;
+
   const interaction = await prisma.interaction.create({
     data: {
       userId,
@@ -405,6 +422,8 @@ export async function createInteraction(data: {
       priority: data.priority ?? null,
       dateSent: data.date_sent ? new Date(data.date_sent) : null,
       comment: data.comment ?? null,
+      stage: createStage,
+      completed: data.completed ?? false,
       sourceType: prismaSourceType,
       recruiterId: data.recruiter_id ?? null,
       processId: data.process_id ?? null,

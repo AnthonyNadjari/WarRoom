@@ -5,10 +5,12 @@ import {
   processStatusToApi,
   interactionStatusToApi,
   interactionTypeToApi,
+  interactionStageToApi,
   sourceTypeToApi,
 } from "@/lib/map-prisma";
 import { getProcessesForSelect } from "@/app/actions/processes";
 import { getCompaniesForSelect, getContactsForCompany } from "@/app/actions/interactions";
+import { getNotesForProcess } from "@/app/actions/process-notes";
 import { ProcessDetailClient } from "./process-detail-client";
 import type { ProcessStatus, InteractionWithRelations } from "@/types/database";
 
@@ -101,10 +103,14 @@ export default async function ProcessDetailPage({
     next_follow_up_date: i.nextFollowUpDate?.toISOString().slice(0, 10) ?? null,
     outcome: i.outcome,
     comment: i.comment,
+    stage: i.stage != null ? interactionStageToApi(i.stage) : null,
+    completed: i.completed ?? false,
     source_type: sourceTypeToApi(i.sourceType),
     recruiter_id: i.recruiterId,
     process_id: i.processId,
+    parent_interaction_id: i.parentInteractionId ?? null,
     created_at: i.createdAt.toISOString(),
+    updated_at: i.updatedAt.toISOString(),
     company: i.company
       ? {
           id: i.company.id,
@@ -130,10 +136,11 @@ export default async function ProcessDetailPage({
     company: cp.company ? { id: cp.company.id, name: cp.company.name } : null,
   }));
 
-  const [allProcesses, companies, contacts] = await Promise.all([
+  const [allProcesses, companies, contacts, notes] = await Promise.all([
     getProcessesForSelect(),
     getCompaniesForSelect(),
     getContactsForCompany(process.companyId),
+    getNotesForProcess(id),
   ]);
 
   return (
@@ -144,6 +151,7 @@ export default async function ProcessDetailPage({
       allProcesses={allProcesses.filter((p) => p.id !== id)}
       companies={companies}
       contacts={contacts}
+      notes={notes}
     />
   );
 }
