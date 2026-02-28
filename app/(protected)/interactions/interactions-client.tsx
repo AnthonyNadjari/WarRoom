@@ -520,6 +520,7 @@ function InteractionsInner(props: {
   });
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>({});
   const selectedInteraction = selectedId
     ? interactions.find((i) => i.id === selectedId)
     : null;
@@ -564,9 +565,11 @@ function InteractionsInner(props: {
         childrenByParent.set(i.parent_interaction_id, arr);
       }
     }
+    const dateAsc = (a: InteractionRow, b: InteractionRow) =>
+      (a.date_sent ?? "").localeCompare(b.date_sent ?? "");
     const dateDesc = (a: InteractionRow, b: InteractionRow) =>
       (b.date_sent ?? "").localeCompare(a.date_sent ?? "");
-    roots.sort(dateDesc);
+    roots.sort(dateAsc);
     childrenByParent.forEach((arr) => arr.sort(dateDesc));
     const ordered: InteractionRow[] = [];
     for (const r of roots) {
@@ -592,6 +595,22 @@ function InteractionsInner(props: {
 
   function toggleGroup(processId: string) {
     setExpandedGroups((prev) => ({ ...prev, [processId]: !prev[processId] }));
+  }
+
+  const parentIdsWithChildren = useMemo(
+    () => new Set(filtered.filter((i) => i.parent_interaction_id).map((i) => i.parent_interaction_id!)),
+    [filtered]
+  );
+  const visibleFiltered = useMemo(
+    () =>
+      filtered.filter(
+        (i) => !i.parent_interaction_id || expandedParents[i.parent_interaction_id!] !== false
+      ),
+    [filtered, expandedParents]
+  );
+
+  function toggleParentExpanded(parentId: string) {
+    setExpandedParents((prev) => ({ ...prev, [parentId]: !(prev[parentId] ?? true) }));
   }
 
   const grouped = useMemo(() => {
@@ -942,7 +961,7 @@ function InteractionsInner(props: {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((i) => {
+                {visibleFiltered.map((i) => {
                   const severity = getFollowUpSeverity(i);
                   const company = i.company as { name?: string } | null;
                   const contact = i.contact;
@@ -952,9 +971,12 @@ function InteractionsInner(props: {
                         .join(" ")
                     : "—";
                   const isExpanded = expandedId === i.id;
+                  const hasChildren = parentIdsWithChildren.has(i.id);
+                  const isParentExpanded = expandedParents[i.id] !== false;
                   return (
                     <Fragment key={i.id}>
                     <tr
+                      id={`row-${i.id}`}
                       role="button"
                       tabIndex={0}
                       onClick={() => setExpandedId((prev) => (prev === i.id ? null : i.id))}
@@ -963,7 +985,8 @@ function InteractionsInner(props: {
                       }
                       className={cn(
                         "border-b transition-colors hover:bg-accent/30 cursor-pointer",
-                        (i.process_id || i.parent_interaction_id) && "border-l-2 border-l-primary/40",
+                        i.parent_interaction_id && "border-l-4 border-l-primary/50 bg-muted/20",
+                        !i.parent_interaction_id && (i.process_id || parentIdsWithChildren.has(i.id)) && "border-l-2 border-l-primary/40",
                         highlightId === i.id && "bg-accent",
                         severity === "red" &&
                           "bg-red-50/50 dark:bg-red-950/20",
@@ -971,12 +994,35 @@ function InteractionsInner(props: {
                           "bg-amber-50/50 dark:bg-amber-950/20"
                       )}
                     >
-                      <td className={cn("px-4 py-3", i.parent_interaction_id && "pl-10")}>
-                        {i.completed ? (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                        ) : (
-                          <Circle className="h-3.5 w-3.5 text-muted-foreground/50" />
+                      <td
+                        className={cn(
+                          "px-4 py-3",
+                          i.parent_interaction_id && "pl-16"
                         )}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          {hasChildren ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleParentExpanded(i.id)}
+                              className="shrink-0 rounded p-0.5 hover:bg-accent"
+                              aria-label={isParentExpanded ? "Collapse" : "Expand"}
+                            >
+                              {isParentExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </button>
+                          ) : i.parent_interaction_id ? (
+                            <span className="shrink-0 text-muted-foreground" aria-hidden>↳</span>
+                          ) : null}
+                          {i.completed ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                          ) : (
+                            <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
@@ -1014,14 +1060,16 @@ function InteractionsInner(props: {
                       <td className="px-4 py-3 text-muted-foreground">
                         {i.role_title ?? "—"}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
+                      <td
+                        className="px-4 py-3 text-muted-foreground max-w-[200px]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div className="flex flex-col gap-0.5 min-w-0">
                           {i.process ? (
                             <Link
                               href={`/processes/${i.process.id}`}
-                              onClick={(e) => e.stopPropagation()}
-                              title={i.process.role_title}
                               className="inline-flex w-fit max-w-full items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60 break-words text-left"
+                              title={i.process.role_title}
                             >
                               {i.process.role_title}
                             </Link>
@@ -1030,11 +1078,10 @@ function InteractionsInner(props: {
                           )}
                           {i.parentInteraction && (
                             <Link
-                              href={i.process?.id ? `/processes/${i.process.id}` : `/interactions?highlight=${i.parentInteraction.id}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="text-xs text-muted-foreground hover:underline"
+                              href={i.process?.id ? `/processes/${i.process.id}` : `#row-${i.parentInteraction.id}`}
+                              className="text-xs text-muted-foreground hover:underline cursor-pointer"
                             >
-                              ↳ Follow-up to: {i.parentInteraction.company?.name ?? "—"} — {i.parentInteraction.role_title ?? "—"} — {i.parentInteraction.date_sent ? formatDate(i.parentInteraction.date_sent) : "—"}
+                              Follow-up to: {i.parentInteraction.company?.name ?? "—"} — {i.parentInteraction.role_title ?? "—"} — {i.parentInteraction.date_sent ? formatDate(i.parentInteraction.date_sent) : "—"}
                             </Link>
                           )}
                         </div>
@@ -1110,7 +1157,7 @@ function InteractionsInner(props: {
           </div>
 
           <ul className="space-y-2 md:hidden">
-            {filtered.map((i) => {
+            {visibleFiltered.map((i) => {
               const severity = getFollowUpSeverity(i);
               const company = i.company as { name?: string } | null;
               const contact = i.contact;
@@ -1121,13 +1168,13 @@ function InteractionsInner(props: {
                 : "—";
               const isExpandedMobile = expandedId === i.id;
               return (
-                <li key={i.id}>
+                <li key={i.id} className={cn(i.parent_interaction_id && "ml-4 border-l-4 border-l-primary/50 pl-3")}>
                   <button
                     type="button"
                     onClick={() => setExpandedId((prev) => (prev === i.id ? null : i.id))}
                     className={cn(
                       "block w-full rounded-xl border bg-card p-4 text-left text-sm transition-all hover:shadow-sm",
-                      (i.process_id || i.parent_interaction_id) && "border-l-4 border-l-primary/50",
+                      !i.parent_interaction_id && (i.process_id || parentIdsWithChildren.has(i.id)) && "border-l-4 border-l-primary/50",
                       severity === "red" &&
                         "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30",
                       severity === "orange" &&
@@ -1160,11 +1207,11 @@ function InteractionsInner(props: {
                     )}
                     {i.parentInteraction && (
                       <Link
-                        href={i.process?.id ? `/processes/${i.process.id}` : `/interactions?highlight=${i.parentInteraction.id}`}
+                        href={i.process?.id ? `/processes/${i.process.id}` : `#row-${i.parentInteraction.id}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="mt-1 block text-xs text-muted-foreground hover:underline"
+                        className="mt-1 block text-xs text-muted-foreground hover:underline cursor-pointer"
                       >
-                        ↳ Follow-up to: {i.parentInteraction.company?.name ?? "—"} — {i.parentInteraction.role_title ?? "—"} — {i.parentInteraction.date_sent ? formatDate(i.parentInteraction.date_sent) : "—"}
+                        Follow-up to: {i.parentInteraction.company?.name ?? "—"} — {i.parentInteraction.role_title ?? "—"} — {i.parentInteraction.date_sent ? formatDate(i.parentInteraction.date_sent) : "—"}
                       </Link>
                     )}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
