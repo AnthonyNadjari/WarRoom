@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CompanyLogo } from "@/components/company-logo";
 import { getFollowUpSeverity } from "@/lib/follow-up";
+import { buildInteractionTree } from "@/lib/interaction-tree";
 import type {
   ProcessWithRelations,
   ProcessStatus,
@@ -417,6 +418,7 @@ export function ProcessDetailClient({
   const [localInteractions, setLocalInteractions] = useState(initialInteractions);
   const [localNotes, setLocalNotes] = useState(initialNotes);
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({});
+  const [pipelineView, setPipelineView] = useState<"stage" | "date">("stage");
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Note creation state
@@ -483,6 +485,14 @@ export function ProcessDetailClient({
 
   // Filter out empty stages
   const activeStages = STAGE_ORDER.filter((stage) => stageGroups[stage].length > 0);
+
+  // Timeline order (by date) for "By date" view: tree order flattened so roots then children, sorted by date
+  const timelineOrder = (() => {
+    const sorted = [...localInteractions].sort((a, b) =>
+      (a.date_sent ?? "").localeCompare(b.date_sent ?? "")
+    );
+    return buildInteractionTree(sorted);
+  })();
 
   const toggleStage = (stage: string) => {
     setCollapsedStages((prev) => ({ ...prev, [stage]: !prev[stage] }));
@@ -664,13 +674,35 @@ export function ProcessDetailClient({
 
         {/* Pipeline Progress */}
         <div className="glass-card overflow-hidden">
-          <div className="flex items-center gap-2 border-b px-4 py-2.5">
+          <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
             <MessageSquare className="h-4 w-4" />
             <span className="text-sm font-semibold">Pipeline</span>
-            <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium">
               {localInteractions.length}
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 rounded-lg border p-0.5">
+              <button
+                type="button"
+                onClick={() => setPipelineView("stage")}
+                className={cn(
+                  "rounded-md px-2 py-1 text-xs transition-colors",
+                  pipelineView === "stage" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                By stage
+              </button>
+              <button
+                type="button"
+                onClick={() => setPipelineView("date")}
+                className={cn(
+                  "rounded-md px-2 py-1 text-xs transition-colors",
+                  pipelineView === "date" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                By date
+              </button>
+            </div>
+            <div className="ml-auto flex items-center gap-1">
               <Button size="sm" variant="ghost" onClick={() => setAttachExistingOpen(true)}>
                 Attach existing
               </Button>
@@ -685,6 +717,70 @@ export function ProcessDetailClient({
               <p className="px-3 py-6 text-center text-sm text-muted-foreground">
                 No interactions linked to this process yet.
               </p>
+            ) : pipelineView === "date" ? (
+              <div className="space-y-0.5">
+                {timelineOrder.map(({ item: i, depth }) => {
+                  const severity = getFollowUpSeverity(i);
+                  const contact = i.contact;
+                  const name = contact
+                    ? [contact.first_name, contact.last_name].filter(Boolean).join(" ")
+                    : "\u2014";
+                  return (
+                    <div
+                      key={i.id}
+                      className={cn(
+                        "group flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition-all",
+                        depth > 0 && "ml-6 border-l-2 border-l-muted",
+                        severity === "red" && "bg-red-50 dark:bg-red-950/30",
+                        severity === "orange" && "bg-amber-50 dark:bg-amber-950/30"
+                      )}
+                    >
+                      <span className="w-20 shrink-0 text-xs text-muted-foreground">
+                        {i.date_sent ? formatDate(i.date_sent) : "\u2014"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCompleted(i)}
+                        disabled={togglingId === i.id}
+                        className="shrink-0 transition-colors hover:scale-110"
+                        title={i.completed ? "Mark as incomplete" : "Mark as complete"}
+                      >
+                        {i.completed ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        ) : (
+                          <Circle className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                        )}
+                      </button>
+                      <Link
+                        href={`/interactions?highlight=${i.id}`}
+                        className="min-w-0 flex-1 hover:underline decoration-muted-foreground/30 underline-offset-2"
+                      >
+                        {depth > 0 && <span className="text-muted-foreground mr-1">↳</span>}
+                        <span className={cn("font-medium", i.completed && "line-through text-muted-foreground")}>
+                          {i.type ?? "Interaction"}
+                        </span>
+                        <span className="text-muted-foreground"> · {name}</span>
+                      </Link>
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0",
+                          i.status === "Interview"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                            : i.status === "Offer"
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                              : i.status === "Rejected"
+                                ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                                : i.status === "Discussion"
+                                  ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                  : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {i.status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <div className="space-y-1">
                 {activeStages.map((stage) => {
@@ -717,10 +813,12 @@ export function ProcessDetailClient({
                         </span>
                       </button>
 
-                      {/* Stage interactions */}
-                      {!isCollapsed && (
+                      {/* Stage interactions (tree order: roots then children indented) */}
+                      {!isCollapsed && (() => {
+                        const tree = buildInteractionTree(stageInteractions);
+                        return (
                         <div className="ml-4 space-y-0.5 pb-1">
-                          {stageInteractions.map((i) => {
+                          {tree.map(({ item: i, depth }) => {
                             const severity = getFollowUpSeverity(i);
                             const contact = i.contact;
                             const name = contact
@@ -732,6 +830,7 @@ export function ProcessDetailClient({
                                 key={i.id}
                                 className={cn(
                                   "group flex items-center gap-2 rounded-lg px-2 py-2 text-sm transition-all",
+                                  depth > 0 && "ml-6 border-l-2 border-l-muted",
                                   severity === "red" && "bg-red-50 dark:bg-red-950/30",
                                   severity === "orange" && "bg-amber-50 dark:bg-amber-950/30"
                                 )}
@@ -756,6 +855,7 @@ export function ProcessDetailClient({
                                   href={`/interactions?highlight=${i.id}`}
                                   className="min-w-0 flex-1 hover:underline decoration-muted-foreground/30 underline-offset-2"
                                 >
+                                  {depth > 0 && <span className="text-muted-foreground mr-1">↳</span>}
                                   <span className={cn("font-medium", i.completed && "line-through text-muted-foreground")}>
                                     {i.type ?? "Interaction"}
                                   </span>
@@ -781,7 +881,9 @@ export function ProcessDetailClient({
                                           ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
                                           : i.status === "Rejected"
                                             ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
-                                            : "bg-muted text-muted-foreground"
+                                            : i.status === "Discussion"
+                                              ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                              : "bg-muted text-muted-foreground"
                                     )}
                                   >
                                     {i.status}
@@ -795,18 +897,22 @@ export function ProcessDetailClient({
                             .filter((i) => i.comment)
                             .map((i) => (
                               <div key={`comment-${i.id}`} className="ml-6 pl-2 pb-0.5">
-                                <p className="text-xs text-muted-foreground italic truncate max-w-md">
+                                <p
+                                  className="text-xs text-muted-foreground italic truncate max-w-md"
+                                  title={i.comment ?? undefined}
+                                >
                                   &ldquo;{i.comment}&rdquo;
                                 </p>
                               </div>
                             ))}
                         </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   );
                 })}
               </div>
-            )}
+            ) }
           </div>
         </div>
 

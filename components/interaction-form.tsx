@@ -37,6 +37,7 @@ const STATUS_OPTIONS: InteractionStatus[] = [
   "Sent",
   "Waiting",
   "Follow-up",
+  "Discussion",
   "Interview",
   "Offer",
   "Rejected",
@@ -59,6 +60,7 @@ const TYPE_OPTIONS: InteractionType[] = [
   "Cold Email",
   "Call",
   "Referral",
+  "Physical Meeting",
 ];
 
 const OUTCOME_OPTIONS: Outcome[] = ["None", "Rejected", "Interview", "Offer"];
@@ -82,6 +84,7 @@ export function InteractionForm(props: {
 }) {
   const { interaction, onSaved, onClose } = props;
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   const [roleTitle, setRoleTitle] = useState(interaction.role_title ?? "");
@@ -92,7 +95,6 @@ export function InteractionForm(props: {
   const [status, setStatus] = useState<InteractionStatus>(interaction.status ?? "Sent");
   const [priority, setPriority] = useState<Priority | "">(interaction.priority ?? "");
   const [dateSent, setDateSent] = useState(interaction.date_sent ?? "");
-  const [lastUpdate, setLastUpdate] = useState(interaction.last_update ?? "");
   const [nextFollowUpDate, setNextFollowUpDate] = useState(
     interaction.next_follow_up_date ?? ""
   );
@@ -138,27 +140,32 @@ export function InteractionForm(props: {
 
   const save = useCallback(async () => {
     setSaving(true);
-    await updateInteraction(interaction.id, {
-      role_title: roleTitle || null,
-      global_category: globalCategory || null,
-      type: type || null,
-      status,
-      priority: priority || null,
-      date_sent: dateSent || null,
-      last_update: lastUpdate || null,
-      next_follow_up_date: nextFollowUpDate || null,
-      outcome: outcome || null,
-      comment: comment || null,
-      stage: stage || null,
-      completed,
-      source_type: sourceType,
-      recruiter_id: sourceType === "Via Recruiter" ? (recruiterId || null) : null,
-      process_id: processId.trim() || null,
-      parent_interaction_id: parentInteractionId.trim() || null,
-    });
-    setSaving(false);
-    setDirty(false);
-    onSaved?.();
+    setSaved(false);
+    try {
+      await updateInteraction(interaction.id, {
+        role_title: roleTitle || null,
+        global_category: globalCategory || null,
+        type: type || null,
+        status,
+        priority: priority || null,
+        date_sent: dateSent || null,
+        next_follow_up_date: nextFollowUpDate || null,
+        outcome: outcome || null,
+        comment: comment || null,
+        stage: stage || null,
+        completed,
+        source_type: sourceType,
+        recruiter_id: sourceType === "Via Recruiter" ? (recruiterId || null) : null,
+        process_id: processId.trim() || null,
+        parent_interaction_id: parentInteractionId.trim() || null,
+      });
+      setDirty(false);
+      setSaved(true);
+      onSaved?.();
+      setTimeout(() => setSaved(false), 2000);
+    } finally {
+      setSaving(false);
+    }
   }, [
     interaction.id,
     roleTitle,
@@ -167,7 +174,6 @@ export function InteractionForm(props: {
     status,
     priority,
     dateSent,
-    lastUpdate,
     nextFollowUpDate,
     outcome,
     comment,
@@ -192,7 +198,6 @@ export function InteractionForm(props: {
     status,
     priority,
     dateSent,
-    lastUpdate,
     nextFollowUpDate,
     outcome,
     comment,
@@ -270,6 +275,9 @@ export function InteractionForm(props: {
               ))}
             </SelectContent>
           </Select>
+          <p className="text-xs text-muted-foreground">
+            Use <strong>Discussion</strong> for a call or chat with no clear next step yet.
+          </p>
         </div>
         <div className="space-y-2">
           <Label>Priority</Label>
@@ -352,18 +360,12 @@ export function InteractionForm(props: {
           </div>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Date sent</Label>
-          <DateInput value={dateSent} onChange={(v) => patch(setDateSent, v)} placeholder="JJ/MM/AAAA" />
-        </div>
-        <div className="space-y-2">
-          <Label>Last update</Label>
-          <DateInput value={lastUpdate} onChange={(v) => patch(setLastUpdate, v)} placeholder="JJ/MM/AAAA" />
-        </div>
+      <div className="space-y-2">
+        <Label>Date</Label>
+        <DateInput value={dateSent} onChange={(v) => patch(setDateSent, v)} placeholder="JJ/MM/AAAA" />
       </div>
       <div className="space-y-2">
-        <Label>Next follow-up date</Label>
+        <Label>Next follow-up date (optional)</Label>
         <DateInput value={nextFollowUpDate} onChange={(v) => patch(setNextFollowUpDate, v)} placeholder="JJ/MM/AAAA" />
       </div>
       <div className="space-y-2">
@@ -454,7 +456,7 @@ export function InteractionForm(props: {
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save"}
+          {saving ? "Saving…" : saved ? "Saved" : "Save"}
         </Button>
         {onClose && (
           <Button type="button" variant="outline" onClick={onClose}>

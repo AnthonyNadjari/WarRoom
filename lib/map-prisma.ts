@@ -57,6 +57,7 @@ const INTERACTION_TYPE_PRISMA_TO_API: Record<PrismaInteractionType, string> = {
   ColdEmail: "Cold Email",
   Call: "Call",
   Referral: "Referral",
+  PhysicalMeeting: "Physical Meeting",
 };
 
 const INTERACTION_TYPE_API_TO_PRISMA: Record<string, PrismaInteractionType> = {
@@ -65,6 +66,7 @@ const INTERACTION_TYPE_API_TO_PRISMA: Record<string, PrismaInteractionType> = {
   "Cold Email": "ColdEmail",
   Call: "Call",
   Referral: "Referral",
+  "Physical Meeting": "PhysicalMeeting",
 };
 
 export function interactionTypeToApi(type: PrismaInteractionType): string {

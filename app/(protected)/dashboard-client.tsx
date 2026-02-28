@@ -27,9 +27,10 @@ function InteractionRow({
     ? [contact.first_name, contact.last_name].filter(Boolean).join(" ")
     : "—";
 
+  const processId = (i as { process_id?: string; process?: { id: string } }).process_id ?? (i as { process?: { id: string } }).process?.id;
   return (
     <Link
-      href={`/interactions?highlight=${i.id}`}
+      href={processId ? `/processes/${processId}` : `/interactions?highlight=${i.id}`}
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all hover:bg-accent/50",
         severity === "red" && "bg-red-50 dark:bg-red-950/30",
@@ -77,7 +78,9 @@ function InteractionRow({
                 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
                 : i.status === "Rejected"
                   ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
-                  : "bg-muted text-muted-foreground"
+                  : i.status === "Discussion"
+                    ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    : "bg-muted text-muted-foreground"
           )}
         >
           {i.status}
@@ -266,8 +269,8 @@ export function DashboardClient({
 
     const ds = i.date_sent ?? "";
     if (ds >= today) {
-      const isCallOrInterview =
-        i.type === "Call" || i.status === "Interview";
+        const isCallOrInterview =
+          i.type === "Call" || i.type === "Physical Meeting" || i.status === "Interview";
       if (isCallOrInterview) scheduled.push(i);
       if (ds <= weekEnd) thisWeek.push(i);
     }

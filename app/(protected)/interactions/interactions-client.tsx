@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Filter, X, Trash2, FolderKanban, List, CheckCircle2, Circle, ChevronDown, ChevronRight } from "lucide-react";
 import { getFollowUpSeverity } from "@/lib/follow-up";
+import { buildInteractionTree } from "@/lib/interaction-tree";
 import {
   getInteractionsWithRelations,
   createInteraction,
@@ -70,6 +71,7 @@ const STATUS_OPTIONS: InteractionStatus[] = [
   "Sent",
   "Waiting",
   "Follow-up",
+  "Discussion",
   "Interview",
   "Offer",
   "Rejected",
@@ -92,6 +94,7 @@ const TYPE_OPTIONS: InteractionType[] = [
   "Cold Email",
   "Call",
   "Referral",
+  "Physical Meeting",
 ];
 
 function StatusBadge({ status }: { status: string }) {
@@ -111,6 +114,8 @@ function StatusBadge({ status }: { status: string }) {
           "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
         status === "Follow-up" &&
           "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300",
+        status === "Discussion" &&
+          "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
         status === "Closed" && "bg-muted text-muted-foreground"
       )}
     >
@@ -137,7 +142,8 @@ function PriorityDot({ priority }: { priority: string | null }) {
 function FollowUpBadge({ interaction }: { interaction: Interaction }) {
   const severity = getFollowUpSeverity(interaction);
   if (severity === "normal") return null;
-  return (
+  const processId = (interaction as { process_id?: string; process?: { id: string } }).process_id ?? (interaction as { process?: { id: string } }).process?.id;
+  const content = (
     <span
       className={cn(
         "rounded-full px-2 py-0.5 text-[10px] font-semibold",
@@ -149,6 +155,14 @@ function FollowUpBadge({ interaction }: { interaction: Interaction }) {
       {severity === "red" ? "Overdue" : "Soon"}
     </span>
   );
+  if (processId) {
+    return (
+      <Link href={`/processes/${processId}`} onClick={(e) => e.stopPropagation()}>
+        {content}
+      </Link>
+    );
+  }
+  return content;
 }
 
 function NewInteractionDialog({
@@ -776,7 +790,7 @@ function InteractionsInner(props: {
               </button>
               {expandedGroups[processId] && (
                 <div className="border-t divide-y">
-                  {items.map((i) => {
+                  {buildInteractionTree(items).map(({ item: i, depth }) => {
                     const contact = i.contact;
                     const name = contact
                       ? [contact.first_name, contact.last_name].filter(Boolean).join(" ")
@@ -787,10 +801,12 @@ function InteractionsInner(props: {
                         type="button"
                         onClick={() => setSelectedId(i.id)}
                         className={cn(
-                          "flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-accent/30 cursor-pointer",
+                          "flex w-full items-center gap-3 py-2.5 text-left text-sm transition-colors hover:bg-accent/30 cursor-pointer",
+                          depth === 0 ? "px-4" : "pl-4 pr-4 border-l-2 border-l-primary/40 ml-4",
                           highlightId === i.id && "bg-accent"
                         )}
                       >
+                        {depth > 0 && <span className="text-muted-foreground shrink-0 w-4">↳</span>}
                         {i.completed ? (
                           <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                         ) : (
@@ -802,8 +818,11 @@ function InteractionsInner(props: {
                             <span className="text-muted-foreground truncate">{i.role_title ?? ""}</span>
                           </div>
                           {i.comment && (
-                            <p className="text-xs text-muted-foreground truncate max-w-[300px] mt-0.5">
-                              {i.comment.length > 80 ? i.comment.slice(0, 80) + "..." : i.comment}
+                            <p
+                              className="text-xs text-muted-foreground truncate max-w-[320px] mt-0.5"
+                              title={i.comment}
+                            >
+                              {i.comment.length > 120 ? i.comment.slice(0, 120) + "…" : i.comment}
                             </p>
                           )}
                         </div>
@@ -862,8 +881,11 @@ function InteractionsInner(props: {
                             <span className="text-muted-foreground truncate">{i.role_title ?? ""}</span>
                           </div>
                           {i.comment && (
-                            <p className="text-xs text-muted-foreground truncate max-w-[300px] mt-0.5">
-                              {i.comment.length > 80 ? i.comment.slice(0, 80) + "..." : i.comment}
+                            <p
+                              className="text-xs text-muted-foreground truncate max-w-[320px] mt-0.5"
+                              title={i.comment}
+                            >
+                              {i.comment.length > 120 ? i.comment.slice(0, 120) + "…" : i.comment}
                             </p>
                           )}
                         </div>
@@ -920,6 +942,7 @@ function InteractionsInner(props: {
                       className={cn(
                         "border-b transition-colors hover:bg-accent/30 cursor-pointer",
                         (i.process_id || i.parent_interaction_id) && "border-l-2 border-l-primary/40",
+                        i.parent_interaction_id && "pl-8",
                         highlightId === i.id && "bg-accent",
                         severity === "red" &&
                           "bg-red-50/50 dark:bg-red-950/20",
@@ -954,12 +977,15 @@ function InteractionsInner(props: {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      <td className="px-4 py-3 text-muted-foreground min-w-0">
                         <div>
                           {name}
                           {i.comment && (
-                            <p className="text-xs text-muted-foreground truncate max-w-[300px] mt-0.5">
-                              {i.comment.length > 80 ? i.comment.slice(0, 80) + "..." : i.comment}
+                            <p
+                              className="text-xs text-muted-foreground truncate max-w-[320px] mt-0.5"
+                              title={i.comment}
+                            >
+                              {i.comment.length > 120 ? i.comment.slice(0, 120) + "…" : i.comment}
                             </p>
                           )}
                         </div>
@@ -967,8 +993,8 @@ function InteractionsInner(props: {
                       <td className="px-4 py-3 text-muted-foreground">
                         {i.role_title ?? "—"}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        <div className="flex flex-col gap-0.5">
+                      <td className="px-4 py-3 text-muted-foreground max-w-[180px]">
+                        <div className="flex flex-col gap-0.5 min-w-0 truncate">
                           {i.process ? (
                             <Link
                               href={`/processes/${i.process.id}`}
@@ -982,7 +1008,7 @@ function InteractionsInner(props: {
                           )}
                           {i.parentInteraction && (
                             <Link
-                              href={`/interactions?highlight=${i.parentInteraction.id}`}
+                              href={i.process?.id ? `/processes/${i.process.id}` : `/interactions?highlight=${i.parentInteraction.id}`}
                               onClick={(e) => e.stopPropagation()}
                               className="text-xs text-muted-foreground hover:underline"
                             >
@@ -1058,13 +1084,16 @@ function InteractionsInner(props: {
                       {name} · {i.role_title ?? "—"}
                     </div>
                     {i.comment && (
-                      <p className="text-xs text-muted-foreground truncate max-w-[300px] mt-0.5">
-                        {i.comment.length > 80 ? i.comment.slice(0, 80) + "..." : i.comment}
+                      <p
+                        className="text-xs text-muted-foreground truncate max-w-[320px] mt-0.5"
+                        title={i.comment}
+                      >
+                        {i.comment.length > 120 ? i.comment.slice(0, 120) + "…" : i.comment}
                       </p>
                     )}
                     {i.parentInteraction && (
                       <Link
-                        href={`/interactions?highlight=${i.parentInteraction.id}`}
+                        href={i.process?.id ? `/processes/${i.process.id}` : `/interactions?highlight=${i.parentInteraction.id}`}
                         onClick={(e) => e.stopPropagation()}
                         className="mt-1 block text-xs text-muted-foreground hover:underline"
                       >
@@ -1159,7 +1188,7 @@ function InteractionsInner(props: {
             </div>
             {selectedInteraction?.parentInteraction && (
               <Link
-                href={`/interactions?highlight=${selectedInteraction.parentInteraction.id}`}
+                href={selectedInteraction.process?.id ? `/processes/${selectedInteraction.process.id}` : `/interactions?highlight=${selectedInteraction.parentInteraction.id}`}
                 className="text-xs text-muted-foreground hover:underline"
                 onClick={() => setSelectedId(null)}
               >

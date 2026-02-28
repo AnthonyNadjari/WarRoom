@@ -119,12 +119,14 @@ enum InteractionType {
   ColdEmail           @map("Cold Email")
   Call
   Referral
+  PhysicalMeeting     @map("Physical Meeting")
 }
 
 enum InteractionStatus {
   Sent
   Waiting
   FollowUp       @map("Follow-up")
+  Discussion
   Interview
   Offer
   Rejected

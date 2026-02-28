@@ -39,12 +39,14 @@ export type InteractionType =
   | "LinkedIn Message"
   | "Cold Email"
   | "Call"
-  | "Referral";
+  | "Referral"
+  | "Physical Meeting";
 
 export type InteractionStatus =
   | "Sent"
   | "Waiting"
   | "Follow-up"
+  | "Discussion"
   | "Interview"
   | "Offer"
   | "Rejected"

@@ -264,10 +264,13 @@ export async function updateInteraction(
       status,
       priority: data.priority,
       dateSent: data.date_sent ? new Date(data.date_sent) : undefined,
-      lastUpdate: data.last_update ? new Date(data.last_update) : undefined,
-      nextFollowUpDate: data.next_follow_up_date
-        ? new Date(data.next_follow_up_date)
-        : undefined,
+      ...(data.last_update !== undefined && {
+        lastUpdate: data.last_update ? new Date(data.last_update) : null,
+      }),
+      nextFollowUpDate:
+        data.next_follow_up_date !== undefined && data.next_follow_up_date !== ""
+          ? new Date(data.next_follow_up_date)
+          : null,
       outcome: data.outcome,
       comment: data.comment,
       stage,

@@ -3,7 +3,7 @@ import type { Interaction } from "@/types/database";
 export type FollowUpSeverity = "normal" | "orange" | "red";
 
 /**
- * If status = "Waiting":
+ * If status = "Waiting" or "Discussion":
  * 0–13 days since date_sent → normal
  * 14–27 days → orange
  * 28+ days → red
@@ -24,7 +24,9 @@ export function getFollowUpSeverity(
     if (nextDate.getTime() <= today.getTime()) return "red";
   }
 
-  if (interaction.status !== "Waiting" || !interaction.date_sent) {
+  const isWaitingOrDiscussion =
+    interaction.status === "Waiting" || interaction.status === "Discussion";
+  if (!isWaitingOrDiscussion || !interaction.date_sent) {
     return "normal";
   }
 
