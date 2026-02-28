@@ -534,7 +534,7 @@ function InteractionsInner(props: {
     dateFrom ||
     dateTo;
 
-  const filtered = useMemo(() => {
+  const filteredResult = useMemo(() => {
     let list = [...interactions];
     if (statusFilter !== "all")
       list = list.filter((i) => i.status === statusFilter);
@@ -556,19 +556,39 @@ function InteractionsInner(props: {
     if (dateTo)
       list = list.filter((i) => i.date_sent && i.date_sent <= dateTo);
     const byId = new Map(list.map((i) => [i.id, i]));
-    const roots = list.filter((i) => !i.parent_interaction_id || !byId.has(i.parent_interaction_id));
-    const childrenByParent = new Map<string, InteractionRow[]>();
-    for (const i of list) {
-      if (i.parent_interaction_id && byId.has(i.parent_interaction_id)) {
-        const arr = childrenByParent.get(i.parent_interaction_id) ?? [];
-        arr.push(i);
-        childrenByParent.set(i.parent_interaction_id, arr);
-      }
-    }
     const dateAsc = (a: InteractionRow, b: InteractionRow) =>
       (a.date_sent ?? "").localeCompare(b.date_sent ?? "");
     const dateDesc = (a: InteractionRow, b: InteractionRow) =>
       (b.date_sent ?? "").localeCompare(a.date_sent ?? "");
+
+    // Effective parent: if A has parent B but A is earlier than B, treat A as root (starter first)
+    const effectiveParentId = new Map<string, string>();
+    for (const i of list) {
+      if (!i.parent_interaction_id || !byId.has(i.parent_interaction_id)) continue;
+      const parent = byId.get(i.parent_interaction_id)!;
+      const iDate = i.date_sent ?? "";
+      const pDate = parent.date_sent ?? "";
+      if (iDate < pDate) {
+        // Child is earlier -> show child as root, parent as child of child
+        effectiveParentId.set(parent.id, i.id);
+      } else {
+        effectiveParentId.set(i.id, i.parent_interaction_id);
+      }
+    }
+
+    const roots = list.filter((i) => {
+      const effectiveParent = effectiveParentId.get(i.id);
+      return !effectiveParent || !byId.has(effectiveParent);
+    });
+    const childrenByParent = new Map<string, InteractionRow[]>();
+    for (const i of list) {
+      const effectiveParent = effectiveParentId.get(i.id);
+      if (effectiveParent && byId.has(effectiveParent)) {
+        const arr = childrenByParent.get(effectiveParent) ?? [];
+        arr.push(i);
+        childrenByParent.set(effectiveParent, arr);
+      }
+    }
     roots.sort(dateAsc);
     childrenByParent.forEach((arr) => arr.sort(dateDesc));
     const ordered: InteractionRow[] = [];
@@ -577,7 +597,8 @@ function InteractionsInner(props: {
       const children = childrenByParent.get(r.id) ?? [];
       ordered.push(...children);
     }
-    return ordered;
+    const parentIdsWithChildrenSet = new Set(childrenByParent.keys());
+    return { ordered, parentIdsWithChildrenSet };
   }, [
     interactions,
     statusFilter,
@@ -588,6 +609,8 @@ function InteractionsInner(props: {
     dateFrom,
     dateTo,
   ]);
+  const filtered = filteredResult.ordered;
+  const parentIdsWithChildren = filteredResult.parentIdsWithChildrenSet;
 
   useEffect(() => {
     localStorage.setItem("warroom-view-mode", viewMode);
@@ -597,10 +620,6 @@ function InteractionsInner(props: {
     setExpandedGroups((prev) => ({ ...prev, [processId]: !prev[processId] }));
   }
 
-  const parentIdsWithChildren = useMemo(
-    () => new Set(filtered.filter((i) => i.parent_interaction_id).map((i) => i.parent_interaction_id!)),
-    [filtered]
-  );
   const visibleFiltered = useMemo(
     () =>
       filtered.filter(
