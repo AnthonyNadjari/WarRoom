@@ -18,10 +18,11 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+  Pencil,
 } from "lucide-react";
 import { updateProcess, deleteProcess } from "@/app/actions/processes";
 import { createInteraction, getInteractionsForCompany, updateInteraction } from "@/app/actions/interactions";
-import { createProcessNote, deleteProcessNote } from "@/app/actions/process-notes";
+import { createProcessNote, deleteProcessNote, updateProcessNote } from "@/app/actions/process-notes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -418,7 +419,7 @@ export function ProcessDetailClient({
   const [localInteractions, setLocalInteractions] = useState(initialInteractions);
   const [localNotes, setLocalNotes] = useState(initialNotes);
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({});
-  const [pipelineView, setPipelineView] = useState<"stage" | "date">("stage");
+  const [pipelineView, setPipelineView] = useState<"stage" | "date">("date");
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
   // Note creation state
@@ -426,6 +427,9 @@ export function ProcessDetailClient({
   const [noteContent, setNoteContent] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [savingEditId, setSavingEditId] = useState<string | null>(null);
 
   // Sync from server on re-render (e.g. after router.refresh)
   useEffect(() => {
@@ -539,6 +543,35 @@ export function ProcessDetailClient({
       setLocalNotes(prevNotes);
     } finally {
       setDeletingNoteId(null);
+    }
+  };
+
+  const startEditNote = (note: ProcessNote) => {
+    setEditingNoteId(note.id);
+    setEditingContent(note.content);
+  };
+
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+    setEditingContent("");
+  };
+
+  const handleUpdateNote = async (noteId: string) => {
+    const content = editingContent.trim();
+    if (!content) return;
+    setSavingEditId(noteId);
+    const prevNotes = localNotes;
+    setLocalNotes((prev) =>
+      prev.map((n) => (n.id === noteId ? { ...n, content } : n))
+    );
+    setEditingNoteId(null);
+    setEditingContent("");
+    try {
+      await updateProcessNote(noteId, content);
+    } catch {
+      setLocalNotes(prevNotes);
+    } finally {
+      setSavingEditId(null);
     }
   };
 
@@ -751,16 +784,29 @@ export function ProcessDetailClient({
                           <Circle className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                         )}
                       </button>
-                      <Link
-                        href={`/interactions?highlight=${i.id}`}
-                        className="min-w-0 flex-1 hover:underline decoration-muted-foreground/30 underline-offset-2"
-                      >
-                        {depth > 0 && <span className="text-muted-foreground mr-1">↳</span>}
-                        <span className={cn("font-medium", i.completed && "line-through text-muted-foreground")}>
-                          {i.type ?? "Interaction"}
-                        </span>
-                        <span className="text-muted-foreground"> · {name}</span>
-                      </Link>
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          href={`/interactions?highlight=${i.id}`}
+                          className="hover:underline decoration-muted-foreground/30 underline-offset-2"
+                        >
+                          {depth > 0 && <span className="text-muted-foreground mr-1">↳</span>}
+                          <span className={cn("font-medium", i.completed && "line-through text-muted-foreground")}>
+                            {i.type ?? "Interaction"}
+                          </span>
+                          <span className="text-muted-foreground"> · {name}</span>
+                          {i.role_title && (
+                            <span className="text-muted-foreground"> · {i.role_title}</span>
+                          )}
+                        </Link>
+                        {i.comment && (
+                          <p
+                            className="text-xs text-muted-foreground italic truncate max-w-md mt-0.5"
+                            title={i.comment}
+                          >
+                            &ldquo;{i.comment}&rdquo;
+                          </p>
+                        )}
+                      </div>
                       <span
                         className={cn(
                           "rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0",
@@ -997,17 +1043,52 @@ export function ProcessDetailClient({
                       <span className="text-xs text-muted-foreground">
                         {formatDate(note.created_at)}
                       </span>
-                      <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
+                      {editingNoteId === note.id ? (
+                        <div className="mt-1 space-y-2">
+                          <textarea
+                            className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+                            value={editingContent}
+                            onChange={(e) => setEditingContent(e.target.value)}
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleUpdateNote(note.id)}
+                              disabled={!editingContent.trim() || savingEditId === note.id}
+                            >
+                              {savingEditId === note.id ? "Saving…" : "Save"}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={cancelEditNote}>
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteNote(note.id)}
-                      disabled={deletingNoteId === note.id}
-                      className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
-                      title="Delete note"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
+                    {editingNoteId !== note.id && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startEditNote(note)}
+                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                          title="Edit note"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteNote(note.id)}
+                          disabled={deletingNoteId === note.id}
+                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          title="Delete note"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>

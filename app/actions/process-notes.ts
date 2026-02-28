@@ -54,6 +54,29 @@ export async function createProcessNote(data: {
   return note.id;
 }
 
+export async function updateProcessNote(noteId: string, content: string): Promise<void> {
+  const userId = await getCurrentUserId();
+  if (!userId) redirect("/login");
+
+  if (!content.trim()) {
+    throw new Error("Note content cannot be empty");
+  }
+
+  const note = await prisma.processNote.findFirst({
+    where: { id: noteId, userId },
+    select: { processId: true },
+  });
+
+  if (!note) throw new Error("Note not found");
+
+  await prisma.processNote.update({
+    where: { id: noteId },
+    data: { content: content.trim() },
+  });
+
+  revalidatePath(`/processes/${note.processId}`);
+}
+
 export async function deleteProcessNote(noteId: string): Promise<void> {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/login");

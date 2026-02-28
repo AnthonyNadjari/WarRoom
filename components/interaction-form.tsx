@@ -276,7 +276,7 @@ export function InteractionForm(props: {
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            Use <strong>Discussion</strong> for a call or chat with no clear next step yet.
+            For a call or chat with no clear next step (e.g. a colleague said they&apos;ll pass on your CV), choose <strong>Discussion</strong>.
           </p>
         </div>
         <div className="space-y-2">

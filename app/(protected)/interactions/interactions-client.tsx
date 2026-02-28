@@ -553,6 +553,7 @@ function InteractionsInner(props: {
       list = list.filter((i) => i.date_sent && i.date_sent >= dateFrom);
     if (dateTo)
       list = list.filter((i) => i.date_sent && i.date_sent <= dateTo);
+    list.sort((a, b) => (b.date_sent ?? "").localeCompare(a.date_sent ?? ""));
     return list;
   }, [
     interactions,
@@ -819,10 +820,10 @@ function InteractionsInner(props: {
                           </div>
                           {i.comment && (
                             <p
-                              className="text-xs text-muted-foreground truncate max-w-[320px] mt-0.5"
+                              className="text-xs text-muted-foreground truncate max-w-[400px] mt-0.5"
                               title={i.comment}
                             >
-                              {i.comment.length > 120 ? i.comment.slice(0, 120) + "…" : i.comment}
+                              {i.comment.length > 180 ? i.comment.slice(0, 180) + "…" : i.comment}
                             </p>
                           )}
                         </div>
@@ -882,10 +883,10 @@ function InteractionsInner(props: {
                           </div>
                           {i.comment && (
                             <p
-                              className="text-xs text-muted-foreground truncate max-w-[320px] mt-0.5"
+                              className="text-xs text-muted-foreground truncate max-w-[400px] mt-0.5"
                               title={i.comment}
                             >
-                              {i.comment.length > 120 ? i.comment.slice(0, 120) + "…" : i.comment}
+                              {i.comment.length > 180 ? i.comment.slice(0, 180) + "…" : i.comment}
                             </p>
                           )}
                         </div>
@@ -942,7 +943,6 @@ function InteractionsInner(props: {
                       className={cn(
                         "border-b transition-colors hover:bg-accent/30 cursor-pointer",
                         (i.process_id || i.parent_interaction_id) && "border-l-2 border-l-primary/40",
-                        i.parent_interaction_id && "pl-8",
                         highlightId === i.id && "bg-accent",
                         severity === "red" &&
                           "bg-red-50/50 dark:bg-red-950/20",
@@ -950,7 +950,7 @@ function InteractionsInner(props: {
                           "bg-amber-50/50 dark:bg-amber-950/20"
                       )}
                     >
-                      <td className="px-4 py-3">
+                      <td className={cn("px-4 py-3", i.parent_interaction_id && "pl-10")}>
                         {i.completed ? (
                           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                         ) : (
@@ -982,10 +982,10 @@ function InteractionsInner(props: {
                           {name}
                           {i.comment && (
                             <p
-                              className="text-xs text-muted-foreground truncate max-w-[320px] mt-0.5"
+                              className="text-xs text-muted-foreground truncate max-w-[400px] mt-0.5"
                               title={i.comment}
                             >
-                              {i.comment.length > 120 ? i.comment.slice(0, 120) + "…" : i.comment}
+                              {i.comment.length > 180 ? i.comment.slice(0, 180) + "…" : i.comment}
                             </p>
                           )}
                         </div>
@@ -993,7 +993,7 @@ function InteractionsInner(props: {
                       <td className="px-4 py-3 text-muted-foreground">
                         {i.role_title ?? "—"}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground max-w-[180px]">
+                      <td className="px-4 py-3 text-muted-foreground max-w-[140px]">
                         <div className="flex flex-col gap-0.5 min-w-0 truncate">
                           {i.process ? (
                             <Link
@@ -1085,10 +1085,10 @@ function InteractionsInner(props: {
                     </div>
                     {i.comment && (
                       <p
-                        className="text-xs text-muted-foreground truncate max-w-[320px] mt-0.5"
+                        className="text-xs text-muted-foreground truncate max-w-[400px] mt-0.5"
                         title={i.comment}
                       >
-                        {i.comment.length > 120 ? i.comment.slice(0, 120) + "…" : i.comment}
+                        {i.comment.length > 180 ? i.comment.slice(0, 180) + "…" : i.comment}
                       </p>
                     )}
                     {i.parentInteraction && (
@@ -1144,7 +1144,8 @@ function InteractionsInner(props: {
         open={!!selectedId}
         onOpenChange={(open) => !open && setSelectedId(null)}
       >
-        <SheetContent>
+        <SheetContent className="flex flex-col overflow-hidden">
+          <div className="flex flex-1 min-h-0 overflow-y-auto pr-2">
           <SheetHeader>
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -1203,6 +1204,7 @@ function InteractionsInner(props: {
               onClose={() => setSelectedId(null)}
             />
           )}
+          </div>
         </SheetContent>
       </Sheet>
 
