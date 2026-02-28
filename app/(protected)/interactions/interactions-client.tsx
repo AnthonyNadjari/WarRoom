@@ -556,49 +556,56 @@ function InteractionsInner(props: {
     if (dateTo)
       list = list.filter((i) => i.date_sent && i.date_sent <= dateTo);
     const byId = new Map(list.map((i) => [i.id, i]));
-    const dateAsc = (a: InteractionRow, b: InteractionRow) =>
-      (a.date_sent ?? "").localeCompare(b.date_sent ?? "");
+    const dateAsc = (a: InteractionRow, b: InteractionRow) => {
+      const d = (a.date_sent ?? "").localeCompare(b.date_sent ?? "");
+      if (d !== 0) return d;
+      return (a.parent_interaction_id ? 1 : 0) - (b.parent_interaction_id ? 1 : 0);
+    };
     const dateDesc = (a: InteractionRow, b: InteractionRow) =>
       (b.date_sent ?? "").localeCompare(a.date_sent ?? "");
 
-    // Effective parent: if A has parent B but A is earlier than B, treat A as root (starter first)
-    const effectiveParentId = new Map<string, string>();
-    for (const i of list) {
-      if (!i.parent_interaction_id || !byId.has(i.parent_interaction_id)) continue;
-      const parent = byId.get(i.parent_interaction_id)!;
-      const iDate = i.date_sent ?? "";
-      const pDate = parent.date_sent ?? "";
-      if (iDate < pDate) {
-        // Child is earlier -> show child as root, parent as child of child
-        effectiveParentId.set(parent.id, i.id);
-      } else {
-        effectiveParentId.set(i.id, i.parent_interaction_id);
+    // Cluster = connected by parent_interaction_id. Find root of each item (follow parent until none in list).
+    function getRootId(i: InteractionRow): string {
+      let curr: InteractionRow = i;
+      while (curr.parent_interaction_id && byId.has(curr.parent_interaction_id)) {
+        curr = byId.get(curr.parent_interaction_id)!;
       }
+      return curr.id;
+    }
+    const clusters = new Map<string, InteractionRow[]>();
+    for (const i of list) {
+      const rootId = getRootId(i);
+      const arr = clusters.get(rootId) ?? [];
+      arr.push(i);
+      clusters.set(rootId, arr);
     }
 
-    const roots = list.filter((i) => {
-      const effectiveParent = effectiveParentId.get(i.id);
-      return !effectiveParent || !byId.has(effectiveParent);
-    });
+    // Within each cluster: sort by date asc so earliest (starter) is always first
+    clusters.forEach((arr) => arr.sort(dateAsc));
+
+    // Order clusters by earliest date in cluster, then output each cluster in date order
+    const clusterEntries = Array.from(clusters.entries());
+    clusterEntries.sort(([, a], [, b]) => dateAsc(a[0], b[0]));
+
+    const ordered: InteractionRow[] = [];
     const childrenByParent = new Map<string, InteractionRow[]>();
-    for (const i of list) {
-      const effectiveParent = effectiveParentId.get(i.id);
-      if (effectiveParent && byId.has(effectiveParent)) {
-        const arr = childrenByParent.get(effectiveParent) ?? [];
-        arr.push(i);
-        childrenByParent.set(effectiveParent, arr);
+    const displayParentId = new Map<string, string>();
+    for (const [, cluster] of clusterEntries) {
+      if (cluster.length === 0) continue;
+      const starter = cluster[0];
+      ordered.push(starter);
+      for (let idx = 1; idx < cluster.length; idx++) {
+        const child = cluster[idx];
+        ordered.push(child);
+        displayParentId.set(child.id, starter.id);
+        const arr = childrenByParent.get(starter.id) ?? [];
+        arr.push(child);
+        childrenByParent.set(starter.id, arr);
       }
     }
-    roots.sort(dateAsc);
     childrenByParent.forEach((arr) => arr.sort(dateDesc));
-    const ordered: InteractionRow[] = [];
-    for (const r of roots) {
-      ordered.push(r);
-      const children = childrenByParent.get(r.id) ?? [];
-      ordered.push(...children);
-    }
     const parentIdsWithChildrenSet = new Set(childrenByParent.keys());
-    return { ordered, parentIdsWithChildrenSet };
+    return { ordered, parentIdsWithChildrenSet, displayParentId };
   }, [
     interactions,
     statusFilter,
@@ -611,6 +618,7 @@ function InteractionsInner(props: {
   ]);
   const filtered = filteredResult.ordered;
   const parentIdsWithChildren = filteredResult.parentIdsWithChildrenSet;
+  const displayParentId = filteredResult.displayParentId;
 
   useEffect(() => {
     localStorage.setItem("warroom-view-mode", viewMode);
@@ -623,9 +631,12 @@ function InteractionsInner(props: {
   const visibleFiltered = useMemo(
     () =>
       filtered.filter(
-        (i) => !i.parent_interaction_id || expandedParents[i.parent_interaction_id!] !== false
+        (i) => {
+          const parentId = displayParentId.get(i.id) ?? i.parent_interaction_id;
+          return !parentId || expandedParents[parentId] !== false;
+        }
       ),
-    [filtered, expandedParents]
+    [filtered, expandedParents, displayParentId]
   );
 
   function toggleParentExpanded(parentId: string) {
@@ -992,6 +1003,7 @@ function InteractionsInner(props: {
                   const isExpanded = expandedId === i.id;
                   const hasChildren = parentIdsWithChildren.has(i.id);
                   const isParentExpanded = expandedParents[i.id] !== false;
+                  const isDisplayChild = displayParentId.has(i.id);
                   return (
                     <Fragment key={i.id}>
                     <tr
@@ -1004,8 +1016,8 @@ function InteractionsInner(props: {
                       }
                       className={cn(
                         "border-b transition-colors hover:bg-accent/30 cursor-pointer",
-                        i.parent_interaction_id && "border-l-4 border-l-primary/50 bg-muted/20",
-                        !i.parent_interaction_id && (i.process_id || parentIdsWithChildren.has(i.id)) && "border-l-2 border-l-primary/40",
+                        isDisplayChild && "border-l-4 border-l-primary/50 bg-muted/20",
+                        !isDisplayChild && (i.process_id || parentIdsWithChildren.has(i.id)) && "border-l-2 border-l-primary/40",
                         highlightId === i.id && "bg-accent",
                         severity === "red" &&
                           "bg-red-50/50 dark:bg-red-950/20",
@@ -1016,7 +1028,7 @@ function InteractionsInner(props: {
                       <td
                         className={cn(
                           "px-4 py-3",
-                          i.parent_interaction_id && "pl-16"
+                          isDisplayChild && "pl-16"
                         )}
                       >
                         <div className="flex items-center gap-1.5">
@@ -1033,7 +1045,7 @@ function InteractionsInner(props: {
                                 <ChevronRight className="h-4 w-4 text-muted-foreground" />
                               )}
                             </button>
-                          ) : i.parent_interaction_id ? (
+                          ) : isDisplayChild ? (
                             <span className="shrink-0 text-muted-foreground" aria-hidden>↳</span>
                           ) : null}
                           {i.completed ? (
@@ -1095,14 +1107,19 @@ function InteractionsInner(props: {
                           ) : (
                             "—"
                           )}
-                          {i.parentInteraction && !i.process && (
-                            <Link
-                              href={`#row-${i.parentInteraction.id}`}
-                              className="text-xs text-muted-foreground hover:underline cursor-pointer"
-                            >
-                              ↳ After: {i.parentInteraction.company?.name ?? "—"}
-                            </Link>
-                          )}
+                          {(i.parentInteraction || displayParentId.get(i.id)) && !i.process && (() => {
+                            const parentId = displayParentId.get(i.id) ?? i.parentInteraction?.id;
+                            const displayParent = parentId ? filtered.find((x) => x.id === parentId) : null;
+                            const parentName = (displayParent?.company as { name?: string } | null)?.name ?? i.parentInteraction?.company?.name ?? "—";
+                            return (
+                              <Link
+                                href={`#row-${parentId}`}
+                                className="text-xs text-muted-foreground hover:underline cursor-pointer"
+                              >
+                                ↳ After: {parentName}
+                              </Link>
+                            );
+                          })()}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -1186,14 +1203,15 @@ function InteractionsInner(props: {
                     .join(" ")
                 : "—";
               const isExpandedMobile = expandedId === i.id;
+              const isDisplayChildMobile = displayParentId.has(i.id);
               return (
-                <li key={i.id} className={cn(i.parent_interaction_id && "ml-4 border-l-4 border-l-primary/50 pl-3")}>
+                <li key={i.id} className={cn(isDisplayChildMobile && "ml-4 border-l-4 border-l-primary/50 pl-3")}>
                   <button
                     type="button"
                     onClick={() => setExpandedId((prev) => (prev === i.id ? null : i.id))}
                     className={cn(
                       "block w-full rounded-xl border bg-card p-4 text-left text-sm transition-all hover:shadow-sm",
-                      !i.parent_interaction_id && (i.process_id || parentIdsWithChildren.has(i.id)) && "border-l-4 border-l-primary/50",
+                      !isDisplayChildMobile && (i.process_id || parentIdsWithChildren.has(i.id)) && "border-l-4 border-l-primary/50",
                       severity === "red" &&
                         "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30",
                       severity === "orange" &&
@@ -1224,15 +1242,20 @@ function InteractionsInner(props: {
                         {i.comment.length > 180 ? i.comment.slice(0, 180) + "…" : i.comment}
                       </p>
                     )}
-                    {i.parentInteraction && !i.process && (
-                      <Link
-                        href={`#row-${i.parentInteraction.id}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-1 block text-xs text-muted-foreground hover:underline cursor-pointer"
-                      >
-                        ↳ After: {i.parentInteraction.company?.name ?? "—"}
-                      </Link>
-                    )}
+                    {(i.parentInteraction || displayParentId.get(i.id)) && !i.process && (() => {
+                      const parentId = displayParentId.get(i.id) ?? i.parentInteraction?.id;
+                      const displayParent = parentId ? filtered.find((x) => x.id === parentId) : null;
+                      const parentName = (displayParent?.company as { name?: string } | null)?.name ?? i.parentInteraction?.company?.name ?? "—";
+                      return (
+                        <Link
+                          href={`#row-${parentId}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="mt-1 block text-xs text-muted-foreground hover:underline cursor-pointer"
+                        >
+                          ↳ After: {parentName}
+                        </Link>
+                      );
+                    })()}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       {i.process && (
                         <Link
