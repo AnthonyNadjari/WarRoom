@@ -453,6 +453,9 @@ export function InteractionForm(props: {
             ))}
           </SelectContent>
         </Select>
+        <p className="text-xs text-muted-foreground break-words max-w-full">
+          Choose the interaction that <strong>led to this one</strong> (e.g. the recruiter call that introduced you). That one will appear <strong>above</strong> this one in the list.
+        </p>
       </div>
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>

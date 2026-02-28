@@ -12,8 +12,8 @@ import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/", label: "Interactions", icon: MessageSquare },
-  { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/processes", label: "Processes", icon: FolderKanban },
+  { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/contacts", label: "Contacts", icon: Users },
 ];
 

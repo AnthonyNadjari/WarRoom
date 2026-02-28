@@ -1076,12 +1076,12 @@ function InteractionsInner(props: {
                           ) : (
                             "—"
                           )}
-                          {i.parentInteraction && (
+                          {i.parentInteraction && !i.process && (
                             <Link
-                              href={i.process?.id ? `/processes/${i.process.id}` : `#row-${i.parentInteraction.id}`}
+                              href={`#row-${i.parentInteraction.id}`}
                               className="text-xs text-muted-foreground hover:underline cursor-pointer"
                             >
-                              Follow-up to: {i.parentInteraction.company?.name ?? "—"} — {i.parentInteraction.role_title ?? "—"} — {i.parentInteraction.date_sent ? formatDate(i.parentInteraction.date_sent) : "—"}
+                              ↳ After: {i.parentInteraction.company?.name ?? "—"}
                             </Link>
                           )}
                         </div>
@@ -1205,13 +1205,13 @@ function InteractionsInner(props: {
                         {i.comment.length > 180 ? i.comment.slice(0, 180) + "…" : i.comment}
                       </p>
                     )}
-                    {i.parentInteraction && (
+                    {i.parentInteraction && !i.process && (
                       <Link
-                        href={i.process?.id ? `/processes/${i.process.id}` : `#row-${i.parentInteraction.id}`}
+                        href={`#row-${i.parentInteraction.id}`}
                         onClick={(e) => e.stopPropagation()}
                         className="mt-1 block text-xs text-muted-foreground hover:underline cursor-pointer"
                       >
-                        Follow-up to: {i.parentInteraction.company?.name ?? "—"} — {i.parentInteraction.role_title ?? "—"} — {i.parentInteraction.date_sent ? formatDate(i.parentInteraction.date_sent) : "—"}
+                        ↳ After: {i.parentInteraction.company?.name ?? "—"}
                       </Link>
                     )}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
