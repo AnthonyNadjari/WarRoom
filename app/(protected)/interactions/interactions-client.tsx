@@ -553,8 +553,27 @@ function InteractionsInner(props: {
       list = list.filter((i) => i.date_sent && i.date_sent >= dateFrom);
     if (dateTo)
       list = list.filter((i) => i.date_sent && i.date_sent <= dateTo);
-    list.sort((a, b) => (b.date_sent ?? "").localeCompare(a.date_sent ?? ""));
-    return list;
+    const byId = new Map(list.map((i) => [i.id, i]));
+    const roots = list.filter((i) => !i.parent_interaction_id || !byId.has(i.parent_interaction_id));
+    const childrenByParent = new Map<string, InteractionRow[]>();
+    for (const i of list) {
+      if (i.parent_interaction_id && byId.has(i.parent_interaction_id)) {
+        const arr = childrenByParent.get(i.parent_interaction_id) ?? [];
+        arr.push(i);
+        childrenByParent.set(i.parent_interaction_id, arr);
+      }
+    }
+    const dateDesc = (a: InteractionRow, b: InteractionRow) =>
+      (b.date_sent ?? "").localeCompare(a.date_sent ?? "");
+    roots.sort(dateDesc);
+    childrenByParent.forEach((arr) => arr.sort(dateDesc));
+    const ordered: InteractionRow[] = [];
+    for (const r of roots) {
+      ordered.push(r);
+      const children = childrenByParent.get(r.id) ?? [];
+      ordered.push(...children);
+    }
+    return ordered;
   }, [
     interactions,
     statusFilter,
@@ -1145,8 +1164,8 @@ function InteractionsInner(props: {
         onOpenChange={(open) => !open && setSelectedId(null)}
       >
         <SheetContent className="flex flex-col overflow-hidden">
-          <div className="flex flex-1 min-h-0 overflow-y-auto pr-2">
-          <SheetHeader>
+          <div className="flex flex-1 min-h-0 flex-col overflow-y-auto gap-6 pb-6 pr-2">
+          <SheetHeader className="space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <SheetTitle>
@@ -1198,11 +1217,13 @@ function InteractionsInner(props: {
             )}
           </SheetHeader>
           {selectedInteraction && (
-            <InteractionForm
-              interaction={selectedInteraction}
-              onSaved={refetch}
-              onClose={() => setSelectedId(null)}
-            />
+            <div className="pt-2">
+              <InteractionForm
+                interaction={selectedInteraction}
+                onSaved={refetch}
+                onClose={() => setSelectedId(null)}
+              />
+            </div>
           )}
           </div>
         </SheetContent>

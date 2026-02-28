@@ -235,7 +235,7 @@ export function InteractionForm(props: {
 
   return (
     <form
-      className="space-y-4"
+      className="space-y-6"
       onSubmit={(e) => {
         e.preventDefault();
         save();
@@ -275,7 +275,7 @@ export function InteractionForm(props: {
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground break-words max-w-full">
             For a call or chat with no clear next step (e.g. a colleague said they&apos;ll pass on your CV), choose <strong>Discussion</strong>.
           </p>
         </div>
@@ -385,11 +385,11 @@ export function InteractionForm(props: {
       <div className="space-y-2">
         <Label>Comment</Label>
         <textarea
-          className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
+          className="flex min-h-[100px] w-full max-w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
           value={comment}
           onChange={(e) => patch(setComment, e.target.value)}
           placeholder="Notes about this interaction..."
-          rows={3}
+          rows={4}
         />
       </div>
       <div className="flex items-center gap-3 rounded-lg border p-3">
