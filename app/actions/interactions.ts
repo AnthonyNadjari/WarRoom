@@ -267,10 +267,10 @@ export async function updateInteraction(
       ...(data.last_update !== undefined && {
         lastUpdate: data.last_update ? new Date(data.last_update) : null,
       }),
-      nextFollowUpDate:
-        data.next_follow_up_date !== undefined && data.next_follow_up_date !== ""
-          ? new Date(data.next_follow_up_date)
-          : null,
+      nextFollowUpDate: (() => {
+        const v = data.next_follow_up_date;
+        return v !== undefined && v !== "" && v != null ? new Date(v) : null;
+      })(),
       outcome: data.outcome,
       comment: data.comment,
       stage,
