@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, Suspense } from "react";
+import { useState, useMemo, useEffect, Suspense, Fragment } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Filter, X, Trash2, FolderKanban, List, CheckCircle2, Circle, ChevronDown, ChevronRight } from "lucide-react";
@@ -519,6 +519,7 @@ function InteractionsInner(props: {
     return "flat";
   });
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const selectedInteraction = selectedId
     ? interactions.find((i) => i.id === selectedId)
     : null;
@@ -950,14 +951,15 @@ function InteractionsInner(props: {
                         .filter(Boolean)
                         .join(" ")
                     : "—";
+                  const isExpanded = expandedId === i.id;
                   return (
+                    <Fragment key={i.id}>
                     <tr
-                      key={i.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => setSelectedId(i.id)}
+                      onClick={() => setExpandedId((prev) => (prev === i.id ? null : i.id))}
                       onKeyDown={(e) =>
-                        e.key === "Enter" && setSelectedId(i.id)
+                        e.key === "Enter" && setExpandedId((prev) => (prev === i.id ? null : i.id))
                       }
                       className={cn(
                         "border-b transition-colors hover:bg-accent/30 cursor-pointer",
@@ -1012,13 +1014,14 @@ function InteractionsInner(props: {
                       <td className="px-4 py-3 text-muted-foreground">
                         {i.role_title ?? "—"}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground max-w-[140px]">
-                        <div className="flex flex-col gap-0.5 min-w-0 truncate">
+                      <td className="px-4 py-3 text-muted-foreground max-w-[200px]">
+                        <div className="flex flex-col gap-0.5 min-w-0">
                           {i.process ? (
                             <Link
                               href={`/processes/${i.process.id}`}
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-flex w-fit items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
+                              title={i.process.role_title}
+                              className="inline-flex w-fit max-w-full items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60 break-words text-left"
                             >
                               {i.process.role_title}
                             </Link>
@@ -1056,6 +1059,50 @@ function InteractionsInner(props: {
                         <FollowUpBadge interaction={i} />
                       </td>
                     </tr>
+                    {isExpanded && (
+                      <tr className="bg-muted/30">
+                        <td colSpan={9} className="px-4 py-4">
+                          <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:grid-cols-3">
+                            <div><span className="text-muted-foreground">Date</span><br />{i.date_sent ? formatDate(i.date_sent) : "—"}</div>
+                            <div><span className="text-muted-foreground">Next follow-up</span><br />{i.next_follow_up_date ? formatDate(i.next_follow_up_date) : "—"}</div>
+                            <div><span className="text-muted-foreground">Type</span><br />{i.type ?? "—"}</div>
+                            <div><span className="text-muted-foreground">Status</span><br /><StatusBadge status={i.status} /></div>
+                            <div><span className="text-muted-foreground">Priority</span><br />{i.priority ?? "—"}</div>
+                            <div><span className="text-muted-foreground">Category</span><br />{i.global_category ?? "—"}</div>
+                            {i.comment && (
+                              <div className="col-span-2 md:col-span-3"><span className="text-muted-foreground">Comment</span><br /><p className="mt-0.5 whitespace-pre-wrap break-words">{i.comment}</p></div>
+                            )}
+                            <div><span className="text-muted-foreground">Process</span><br />{i.process ? i.process.role_title : "—"}</div>
+                            {i.parentInteraction && (
+                              <div className="col-span-2 md:col-span-3"><span className="text-muted-foreground">Follow-up to</span><br />{i.parentInteraction.company?.name ?? "—"} — {i.parentInteraction.role_title ?? "—"} — {i.parentInteraction.date_sent ? formatDate(i.parentInteraction.date_sent) : "—"}</div>
+                            )}
+                          </div>
+                          <div className="mt-3 flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedId(null);
+                                setSelectedId(i.id);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setExpandedId(null);
+                              }}
+                            >
+                              Close
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -1072,11 +1119,12 @@ function InteractionsInner(props: {
                     .filter(Boolean)
                     .join(" ")
                 : "—";
+              const isExpandedMobile = expandedId === i.id;
               return (
                 <li key={i.id}>
                   <button
                     type="button"
-                    onClick={() => setSelectedId(i.id)}
+                    onClick={() => setExpandedId((prev) => (prev === i.id ? null : i.id))}
                     className={cn(
                       "block w-full rounded-xl border bg-card p-4 text-left text-sm transition-all hover:shadow-sm",
                       (i.process_id || i.parent_interaction_id) && "border-l-4 border-l-primary/50",
@@ -1124,7 +1172,8 @@ function InteractionsInner(props: {
                         <Link
                           href={`/processes/${i.process.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60"
+                          title={i.process.role_title}
+                          className="inline-flex max-w-full items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60 break-words"
                         >
                           {i.process.role_title}
                         </Link>
@@ -1152,6 +1201,20 @@ function InteractionsInner(props: {
                       <FollowUpBadge interaction={i} />
                     </div>
                   </button>
+                  {isExpandedMobile && (
+                    <div className="mt-2 rounded-xl border bg-muted/30 p-4 text-sm">
+                      <div className="grid gap-2">
+                        <div><span className="text-muted-foreground">Date</span>: {i.date_sent ? formatDate(i.date_sent) : "—"}</div>
+                        <div><span className="text-muted-foreground">Type</span>: {i.type ?? "—"}</div>
+                        <div><span className="text-muted-foreground">Status</span>: <StatusBadge status={i.status} /></div>
+                        {i.comment && <div><span className="text-muted-foreground">Comment</span>: <p className="mt-0.5 whitespace-pre-wrap break-words">{i.comment}</p></div>}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <Button size="sm" onClick={() => { setExpandedId(null); setSelectedId(i.id); }}>Edit</Button>
+                        <Button size="sm" variant="outline" onClick={() => setExpandedId(null)}>Close</Button>
+                      </div>
+                    </div>
+                  )}
                 </li>
               );
             })}

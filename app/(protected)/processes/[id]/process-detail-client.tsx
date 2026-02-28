@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ComponentProps } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -50,6 +50,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { InteractionForm } from "@/components/interaction-form";
 import { CompanyLogo } from "@/components/company-logo";
 import { getFollowUpSeverity } from "@/lib/follow-up";
 import { buildInteractionTree } from "@/lib/interaction-tree";
@@ -421,6 +428,7 @@ export function ProcessDetailClient({
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({});
   const [pipelineView, setPipelineView] = useState<"stage" | "date">("date");
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [selectedInteraction, setSelectedInteraction] = useState<InteractionWithRelations | null>(null);
 
   // Note creation state
   const [showNoteInput, setShowNoteInput] = useState(false);
@@ -784,20 +792,19 @@ export function ProcessDetailClient({
                           <Circle className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                         )}
                       </button>
-                      <div className="min-w-0 flex-1">
-                        <Link
-                          href={`/interactions?highlight=${i.id}`}
-                          className="hover:underline decoration-muted-foreground/30 underline-offset-2"
-                        >
-                          {depth > 0 && <span className="text-muted-foreground mr-1">↳</span>}
-                          <span className={cn("font-medium", i.completed && "line-through text-muted-foreground")}>
-                            {i.type ?? "Interaction"}
-                          </span>
-                          <span className="text-muted-foreground"> · {name}</span>
-                          {i.role_title && (
-                            <span className="text-muted-foreground"> · {i.role_title}</span>
-                          )}
-                        </Link>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedInteraction(i)}
+                        className="min-w-0 flex-1 text-left hover:underline decoration-muted-foreground/30 underline-offset-2"
+                      >
+                        {depth > 0 && <span className="text-muted-foreground mr-1">↳</span>}
+                        <span className={cn("font-medium", i.completed && "line-through text-muted-foreground")}>
+                          {i.type ?? "Interaction"}
+                        </span>
+                        <span className="text-muted-foreground"> · {name}</span>
+                        {i.role_title && (
+                          <span className="text-muted-foreground"> · {i.role_title}</span>
+                        )}
                         {i.comment && (
                           <p
                             className="text-xs text-muted-foreground italic truncate max-w-md mt-0.5"
@@ -806,7 +813,7 @@ export function ProcessDetailClient({
                             &ldquo;{i.comment}&rdquo;
                           </p>
                         )}
-                      </div>
+                      </button>
                       <span
                         className={cn(
                           "rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0",
@@ -896,10 +903,11 @@ export function ProcessDetailClient({
                                   )}
                                 </button>
 
-                                {/* Interaction details - clickable to navigate */}
-                                <Link
-                                  href={`/interactions?highlight=${i.id}`}
-                                  className="min-w-0 flex-1 hover:underline decoration-muted-foreground/30 underline-offset-2"
+                                {/* Interaction details - click to open detail sheet */}
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedInteraction(i)}
+                                  className="min-w-0 flex-1 text-left hover:underline decoration-muted-foreground/30 underline-offset-2"
                                 >
                                   {depth > 0 && <span className="text-muted-foreground mr-1">↳</span>}
                                   <span className={cn("font-medium", i.completed && "line-through text-muted-foreground")}>
@@ -909,7 +917,7 @@ export function ProcessDetailClient({
                                   <span className="ml-1 text-xs text-muted-foreground">
                                     · {i.date_sent ? formatDate(i.date_sent) : "\u2014"}
                                   </span>
-                                </Link>
+                                </button>
 
                                 {/* Right-side badges */}
                                 <div className="flex flex-wrap items-center gap-1 shrink-0">
@@ -1111,6 +1119,40 @@ export function ProcessDetailClient({
         companyId={process.company_id}
         onAttached={() => router.refresh()}
       />
+
+      <Sheet open={!!selectedInteraction} onOpenChange={(open) => !open && setSelectedInteraction(null)}>
+        <SheetContent className="flex flex-col overflow-hidden">
+          <div className="flex flex-1 min-h-0 flex-col overflow-y-auto gap-6 pb-6 pr-2">
+            <SheetHeader className="space-y-2">
+              <SheetTitle>
+                {selectedInteraction
+                  ? (selectedInteraction.company as { name?: string })?.name + " · " +
+                    (selectedInteraction.contact
+                      ? [selectedInteraction.contact.first_name, selectedInteraction.contact.last_name].filter(Boolean).join(" ")
+                      : "")
+                  : "Interaction"}
+              </SheetTitle>
+            </SheetHeader>
+            {selectedInteraction && (
+              <div className="pt-2">
+                <InteractionForm
+                  interaction={
+                    {
+                      ...selectedInteraction,
+                      process: { id: process.id, role_title: process.role_title, status: process.status },
+                    } as ComponentProps<typeof InteractionForm>["interaction"]
+                  }
+                  onSaved={() => {
+                    setSelectedInteraction(null);
+                    router.refresh();
+                  }}
+                  onClose={() => setSelectedInteraction(null)}
+                />
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
