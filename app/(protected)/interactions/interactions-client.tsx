@@ -1216,7 +1216,7 @@ function InteractionsInner(props: {
                 <li key={i.id} className={cn(isDisplayChildMobile && "ml-4 border-l-4 border-l-primary/50 pl-3")}>
                   <div
                     className={cn(
-                      "rounded-xl border bg-card p-4 text-left text-sm transition-all",
+                      "rounded-xl border bg-card p-4 pb-4 text-left text-sm transition-all min-w-0 overflow-hidden",
                       !isDisplayChildMobile && (i.process_id || hasChildrenMobile) && "border-l-4 border-l-primary/50",
                       severity === "red" &&
                         "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30",
@@ -1266,10 +1266,10 @@ function InteractionsInner(props: {
                     </div>
                     {i.comment && (
                       <p
-                        className="text-xs text-muted-foreground truncate max-w-[400px] mt-0.5"
+                        className="text-xs text-muted-foreground mt-0.5 line-clamp-3 break-words min-w-0"
                         title={i.comment}
                       >
-                        {i.comment.length > 180 ? i.comment.slice(0, 180) + "…" : i.comment}
+                        {i.comment}
                       </p>
                     )}
                     {(i.parentInteraction || displayParentId.get(i.id)) && !i.process && (() => {
@@ -1286,7 +1286,7 @@ function InteractionsInner(props: {
                         </Link>
                       );
                     })()}
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="mt-2 pb-0.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
                       {i.process && (
                         <Link
                           href={`/processes/${i.process.id}`}
