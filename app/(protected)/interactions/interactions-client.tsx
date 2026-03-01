@@ -556,10 +556,12 @@ function InteractionsInner(props: {
     if (dateTo)
       list = list.filter((i) => i.date_sent && i.date_sent <= dateTo);
     const byId = new Map(list.map((i) => [i.id, i]));
-    const dateAsc = (a: InteractionRow, b: InteractionRow) => {
-      const d = (a.date_sent ?? "").localeCompare(b.date_sent ?? "");
-      if (d !== 0) return d;
-      return (a.parent_interaction_id ? 1 : 0) - (b.parent_interaction_id ? 1 : 0);
+    // Within a cluster: show the one that "led to" the other first (has parent = intro/recruiter), then by date
+    const clusterOrder = (a: InteractionRow, b: InteractionRow) => {
+      const hasParentA = a.parent_interaction_id ? 0 : 1;
+      const hasParentB = b.parent_interaction_id ? 0 : 1;
+      if (hasParentA !== hasParentB) return hasParentA - hasParentB;
+      return (a.date_sent ?? "").localeCompare(b.date_sent ?? "");
     };
     const dateDesc = (a: InteractionRow, b: InteractionRow) =>
       (b.date_sent ?? "").localeCompare(a.date_sent ?? "");
@@ -580,12 +582,12 @@ function InteractionsInner(props: {
       clusters.set(rootId, arr);
     }
 
-    // Within each cluster: sort by date asc so earliest (starter) is always first
-    clusters.forEach((arr) => arr.sort(dateAsc));
+    // Within each cluster: intro/recruiter (has parent) first, then by date asc
+    clusters.forEach((arr) => arr.sort(clusterOrder));
 
-    // Order clusters by earliest date in cluster, then output each cluster in date order
+    // Order clusters by first item's date, then output each cluster in order
     const clusterEntries = Array.from(clusters.entries());
-    clusterEntries.sort(([, a], [, b]) => dateAsc(a[0], b[0]));
+    clusterEntries.sort(([, a], [, b]) => (a[0].date_sent ?? "").localeCompare(b[0].date_sent ?? ""));
 
     const ordered: InteractionRow[] = [];
     const childrenByParent = new Map<string, InteractionRow[]>();
