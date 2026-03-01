@@ -1037,14 +1037,18 @@ function InteractionsInner(props: {
                           {hasChildren ? (
                             <button
                               type="button"
-                              onClick={() => toggleParentExpanded(i.id)}
-                              className="shrink-0 rounded p-0.5 hover:bg-accent"
-                              aria-label={isParentExpanded ? "Collapse" : "Expand"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                toggleParentExpanded(i.id);
+                              }}
+                              className="shrink-0 flex items-center justify-center min-w-[44px] min-h-[44px] -m-2 rounded hover:bg-accent touch-manipulation"
+                              aria-label={isParentExpanded ? "Collapse follow-ups" : "Expand follow-ups"}
                             >
                               {isParentExpanded ? (
-                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                <ChevronDown className="h-5 w-5 text-muted-foreground" />
                               ) : (
-                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                <ChevronRight className="h-5 w-5 text-muted-foreground" />
                               )}
                             </button>
                           ) : isDisplayChild ? (
@@ -1206,28 +1210,52 @@ function InteractionsInner(props: {
                 : "—";
               const isExpandedMobile = expandedId === i.id;
               const isDisplayChildMobile = displayParentId.has(i.id);
+              const hasChildrenMobile = parentIdsWithChildren.has(i.id);
+              const isParentExpandedMobile = expandedParents[i.id] !== false;
               return (
                 <li key={i.id} className={cn(isDisplayChildMobile && "ml-4 border-l-4 border-l-primary/50 pl-3")}>
-                  <button
-                    type="button"
-                    onClick={() => setExpandedId((prev) => (prev === i.id ? null : i.id))}
+                  <div
                     className={cn(
-                      "block w-full rounded-xl border bg-card p-4 text-left text-sm transition-all hover:shadow-sm",
-                      !isDisplayChildMobile && (i.process_id || parentIdsWithChildren.has(i.id)) && "border-l-4 border-l-primary/50",
+                      "rounded-xl border bg-card p-4 text-left text-sm transition-all",
+                      !isDisplayChildMobile && (i.process_id || hasChildrenMobile) && "border-l-4 border-l-primary/50",
                       severity === "red" &&
                         "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30",
                       severity === "orange" &&
                         "border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/30"
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2">
+                      {hasChildrenMobile ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleParentExpanded(i.id)}
+                          className="shrink-0 flex items-center justify-center min-w-[44px] min-h-[44px] -m-1 rounded-lg hover:bg-accent/50 touch-manipulation"
+                          aria-label={isParentExpandedMobile ? "Collapse follow-ups" : "Expand follow-ups"}
+                        >
+                          {isParentExpandedMobile ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </button>
+                      ) : isDisplayChildMobile ? (
+                        <span className="shrink-0 w-[44px] flex justify-center text-muted-foreground">↳</span>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={() => setExpandedId((prev) => (prev === i.id ? null : i.id))}
+                        className="flex-1 min-w-0 text-left py-2 -my-2 px-2 -mx-2 rounded-lg hover:bg-accent/30 touch-manipulation min-h-[44px] flex flex-col items-start justify-center"
+                        aria-expanded={isExpandedMobile}
+                        aria-label={isExpandedMobile ? "Hide details" : "View details"}
+                      >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         {i.completed ? (
                           <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                         ) : (
                           <Circle className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
                         )}
-                        <span className="font-semibold">
+                        <span className="font-semibold truncate">
                           {company?.name ?? "—"}
                         </span>
                       </div>
@@ -1292,6 +1320,8 @@ function InteractionsInner(props: {
                       <FollowUpBadge interaction={i} />
                     </div>
                   </button>
+                    </div>
+                  </div>
                   {isExpandedMobile && (
                     <div className="mt-2 rounded-xl border bg-muted/30 p-4 text-sm">
                       <div className="grid gap-2">
@@ -1301,8 +1331,8 @@ function InteractionsInner(props: {
                         {i.comment && <div><span className="text-muted-foreground">Comment</span>: <p className="mt-0.5 whitespace-pre-wrap break-words">{i.comment}</p></div>}
                       </div>
                       <div className="mt-3 flex gap-2">
-                        <Button size="sm" onClick={() => { setExpandedId(null); setSelectedId(i.id); }}>Edit</Button>
-                        <Button size="sm" variant="outline" onClick={() => setExpandedId(null)}>Close</Button>
+                        <Button size="sm" className="min-h-[44px] touch-manipulation" onClick={() => { setExpandedId(null); setSelectedId(i.id); }}>Edit</Button>
+                        <Button size="sm" variant="outline" className="min-h-[44px] touch-manipulation" onClick={() => setExpandedId(null)}>Close</Button>
                       </div>
                     </div>
                   )}
