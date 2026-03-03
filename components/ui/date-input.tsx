@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { formatDateForInput, parseInputToIsoDate } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
 
-/** Value is YYYY-MM-DD (ISO); display is always DD/MM/YYYY. */
+/** Value is YYYY-MM-DD (ISO). On touch/mobile uses native date picker for iOS. */
 export function DateInput({
   value,
   onChange,
@@ -16,8 +16,17 @@ export function DateInput({
   value: string;
   onChange: (isoDate: string) => void;
 }) {
+  const [useNativePicker, setUseNativePicker] = React.useState(false);
   const [display, setDisplay] = React.useState(() => formatDateForInput(value));
   const isControlled = value !== undefined;
+
+  React.useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    const fn = () => setUseNativePicker(mq.matches);
+    fn();
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
 
   React.useEffect(() => {
     if (isControlled && value !== parseInputToIsoDate(display)) {
@@ -44,6 +53,18 @@ export function DateInput({
       setDisplay(formatDateForInput(value));
     }
   };
+
+  if (useNativePicker) {
+    return (
+      <Input
+        type="date"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value || "")}
+        className={className}
+        {...props}
+      />
+    );
+  }
 
   return (
     <div className="relative">

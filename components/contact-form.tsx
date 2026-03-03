@@ -81,6 +81,7 @@ export function ContactForm(props: {
       };
       if (contact) {
         await updateContact(contact.id, payload);
+        router.push("/contacts");
         router.refresh();
       } else {
         await createContact(payload);

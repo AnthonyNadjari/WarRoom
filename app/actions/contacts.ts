@@ -6,6 +6,51 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/session";
 import type { ContactCategory, Seniority, Contact } from "@prisma/client";
 
+export async function getContactById(id: string): Promise<{
+  id: string;
+  user_id: string;
+  company_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  exact_title: string | null;
+  category: ContactCategory | null;
+  seniority: Seniority | null;
+  location: string | null;
+  email: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  manager_id: string | null;
+  notes: string | null;
+  created_at: string;
+  company: { id: string; name: string };
+} | null> {
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+  const c = await prisma.contact.findFirst({
+    where: { id, userId },
+    include: { company: { select: { id: true, name: true } } },
+  });
+  if (!c) return null;
+  return {
+    id: c.id,
+    user_id: c.userId,
+    company_id: c.companyId,
+    first_name: c.firstName,
+    last_name: c.lastName,
+    exact_title: c.exactTitle,
+    category: c.category,
+    seniority: c.seniority,
+    location: c.location,
+    email: c.email,
+    phone: c.phone,
+    linkedin_url: c.linkedinUrl,
+    manager_id: c.managerId,
+    notes: c.notes,
+    created_at: c.createdAt.toISOString(),
+    company: c.company,
+  };
+}
+
 export async function getContactsWithCompany() {
   const userId = await getCurrentUserId();
   if (!userId) return [];
@@ -90,6 +135,10 @@ export async function updateContact(
 ) {
   const userId = await getCurrentUserId();
   if (!userId) redirect("/login");
+  const updated = await prisma.contact.findFirst({
+    where: { id, userId },
+    select: { companyId: true },
+  });
   await prisma.contact.updateMany({
     where: { id, userId },
     data: {
@@ -107,4 +156,5 @@ export async function updateContact(
     },
   });
   revalidatePath("/contacts");
+  if (updated?.companyId) revalidatePath(`/companies/${updated.companyId}`);
 }

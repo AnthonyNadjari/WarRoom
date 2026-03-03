@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Search, Users, Mail, Briefcase } from "lucide-react";
+import { Search, Users, Mail, Briefcase, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import type { Contact } from "@/types/database";
 import { cn } from "@/lib/utils";
 
@@ -41,14 +42,22 @@ export function ContactsClient(props: {
             {initialContacts.length} contact{initialContacts.length !== 1 ? "s" : ""} across all companies
           </p>
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search contacts..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-56 pl-9"
-          />
+        <div className="flex items-center gap-2">
+          <Button asChild size="sm">
+            <Link href="/contacts/new">
+              <Plus className="h-4 w-4" />
+              Add contact
+            </Link>
+          </Button>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search contacts..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-56 pl-9"
+            />
+          </div>
         </div>
       </div>
       <div className="flex-1">
@@ -57,7 +66,7 @@ export function ContactsClient(props: {
             <Users className="mb-3 h-10 w-10 text-muted-foreground/40" />
             <p className="text-muted-foreground">
               {initialContacts.length === 0
-                ? "No contacts yet. Add one from a company page."
+                ? "No contacts yet. Add one using the button above."
                 : "No contacts match your search."}
             </p>
           </div>
@@ -73,11 +82,7 @@ export function ContactsClient(props: {
               return (
                 <Link
                   key={c.id}
-                  href={
-                    company?.id
-                      ? "/companies/" + company.id + "?tab=people"
-                      : "#"
-                  }
+                  href={"/contacts/" + c.id + "/edit"}
                   className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-accent/30"
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">

@@ -498,10 +498,11 @@ export function ProcessDetailClient({
   // Filter out empty stages
   const activeStages = STAGE_ORDER.filter((stage) => stageGroups[stage].length > 0);
 
-  // Timeline order (by date) for "By date" view: tree order flattened so roots then children, sorted by date
+  // Timeline order (by date) for "By date" view: tree order flattened so roots then children, sorted by date (null/empty dates last)
   const timelineOrder = (() => {
+    const nullLast = (d: string | null | undefined) => d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "9999-12-31";
     const sorted = [...localInteractions].sort((a, b) =>
-      (a.date_sent ?? "").localeCompare(b.date_sent ?? "")
+      nullLast(a.date_sent).localeCompare(nullLast(b.date_sent))
     );
     return buildInteractionTree(sorted);
   })();

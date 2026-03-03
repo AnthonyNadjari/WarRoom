@@ -50,12 +50,14 @@ export function CompanyForm({ company }: { company?: CompanyEdit }) {
     setSaving(true);
     try {
       if (company) {
+        const effectiveLogoUrl =
+          logoUrl?.trim() || (company.logo_url?.trim() ?? null) || null;
         await updateCompany(company.id, {
           name,
           type,
           main_location: mainLocation || null,
           website_domain: websiteDomain || null,
-          logo_url: logoUrl || null,
+          logo_url: effectiveLogoUrl,
           notes: notes || null,
         });
         router.push("/companies/" + company.id);

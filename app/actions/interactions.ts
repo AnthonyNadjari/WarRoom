@@ -413,6 +413,13 @@ export async function createInteraction(data: {
     ? interactionStageFromApi(String(data.stage))
     : null;
 
+  const dateSent =
+    data.date_sent && String(data.date_sent).trim()
+      ? new Date(data.date_sent)
+      : data.process_id
+        ? new Date()
+        : null;
+
   const interaction = await prisma.interaction.create({
     data: {
       userId,
@@ -423,7 +430,7 @@ export async function createInteraction(data: {
       type: type ?? null,
       status: status ?? "Sent",
       priority: data.priority ?? null,
-      dateSent: data.date_sent ? new Date(data.date_sent) : null,
+      dateSent,
       comment: data.comment ?? null,
       stage: createStage,
       completed: data.completed ?? false,
