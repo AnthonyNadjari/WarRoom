@@ -1070,15 +1070,6 @@ function InteractionsInner(props: {
                           >
                             {company?.name ?? "—"}
                           </Link>
-                          {i.source_type === "Via Recruiter" && i.recruiter && (
-                            <Link
-                              href={"/companies/" + i.recruiter.id}
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 hover:bg-violet-200 dark:bg-violet-900/40 dark:text-violet-300 dark:hover:bg-violet-900/60"
-                            >
-                              via {i.recruiter.name}
-                            </Link>
-                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground min-w-0">

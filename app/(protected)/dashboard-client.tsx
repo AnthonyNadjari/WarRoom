@@ -61,11 +61,6 @@ function InteractionRow({
         <span className="text-muted-foreground"> · {name}</span>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        {i.source_type === "Via Recruiter" && i.recruiter && (
-          <span className="hidden sm:inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-            via {i.recruiter.name}
-          </span>
-        )}
         <span className="text-xs text-muted-foreground">
           {i.date_sent ? formatDate(i.date_sent) : "—"}
         </span>

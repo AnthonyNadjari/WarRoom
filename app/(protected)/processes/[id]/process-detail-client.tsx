@@ -922,11 +922,6 @@ export function ProcessDetailClient({
 
                                 {/* Right-side badges */}
                                 <div className="flex flex-wrap items-center gap-1 shrink-0">
-                                  {i.source_type === "Via Recruiter" && i.recruiter && (
-                                    <span className="hidden sm:inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-                                      via {i.recruiter.name}
-                                    </span>
-                                  )}
                                   <span
                                     className={cn(
                                       "rounded-full px-2 py-0.5 text-[10px] font-semibold",
