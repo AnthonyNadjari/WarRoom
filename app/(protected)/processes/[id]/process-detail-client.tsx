@@ -422,8 +422,14 @@ export function ProcessDetailClient({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [attachExistingOpen, setAttachExistingOpen] = useState(false);
 
-  // Local state for optimistic updates
-  const [localInteractions, setLocalInteractions] = useState(initialInteractions);
+  // Sort by date ascending (oldest first, newest at bottom); null/empty dates last
+  const sortByDateAsc = (list: InteractionWithRelations[]) => {
+    const nullLast = (d: string | null | undefined) => d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "9999-12-31";
+    return [...list].sort((a, b) => nullLast(a.date_sent).localeCompare(nullLast(b.date_sent)));
+  };
+
+  // Local state for optimistic updates (kept in date order: oldest first)
+  const [localInteractions, setLocalInteractions] = useState(() => sortByDateAsc(initialInteractions));
   const [localNotes, setLocalNotes] = useState(initialNotes);
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({});
   const [pipelineView, setPipelineView] = useState<"stage" | "date">("date");
@@ -439,9 +445,9 @@ export function ProcessDetailClient({
   const [editingContent, setEditingContent] = useState("");
   const [savingEditId, setSavingEditId] = useState<string | null>(null);
 
-  // Sync from server on re-render (e.g. after router.refresh)
+  // Sync from server on re-render (e.g. after router.refresh), keep date order
   useEffect(() => {
-    setLocalInteractions(initialInteractions);
+    setLocalInteractions(sortByDateAsc(initialInteractions));
   }, [initialInteractions]);
 
   useEffect(() => {
@@ -481,7 +487,7 @@ export function ProcessDetailClient({
     }
   };
 
-  // Group interactions by stage
+  // Group interactions by stage (localInteractions is already sorted by date asc)
   const stageGroups = (() => {
     const groups: Record<string, InteractionWithRelations[]> = {};
     for (const stage of STAGE_ORDER) {
@@ -815,22 +821,29 @@ export function ProcessDetailClient({
                           </p>
                         )}
                       </button>
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[10px] font-semibold shrink-0",
-                          i.status === "Interview"
-                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                            : i.status === "Offer"
-                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
-                              : i.status === "Rejected"
-                                ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
-                                : i.status === "Discussion"
-                                  ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                                  : "bg-muted text-muted-foreground"
+                      <div className="flex flex-wrap items-center gap-1 shrink-0">
+                        {i.source_type === "Via Recruiter" && i.recruiter && (
+                          <span className="inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                            via {i.recruiter.name}
+                          </span>
                         )}
-                      >
-                        {i.status}
-                      </span>
+                        <span
+                          className={cn(
+                            "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                            i.status === "Interview"
+                              ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
+                              : i.status === "Offer"
+                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                                : i.status === "Rejected"
+                                  ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300"
+                                  : i.status === "Discussion"
+                                    ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                    : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          {i.status}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
@@ -920,8 +933,13 @@ export function ProcessDetailClient({
                                   </span>
                                 </button>
 
-                                {/* Right-side badges */}
+                                {/* Right-side badges: via recruiter (process page only) + status */}
                                 <div className="flex flex-wrap items-center gap-1 shrink-0">
+                                  {i.source_type === "Via Recruiter" && i.recruiter && (
+                                    <span className="inline-flex items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                                      via {i.recruiter.name}
+                                    </span>
+                                  )}
                                   <span
                                     className={cn(
                                       "rounded-full px-2 py-0.5 text-[10px] font-semibold",
