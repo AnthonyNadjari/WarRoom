@@ -585,9 +585,10 @@ function InteractionsInner(props: {
     // Within each cluster: intro/recruiter (has parent) first, then by date asc
     clusters.forEach((arr) => arr.sort(clusterOrder));
 
-    // Order clusters by first item's date, then output each cluster in order
+    // Order clusters by first item's date (oldest first; null/empty dates last)
     const clusterEntries = Array.from(clusters.entries());
-    clusterEntries.sort(([, a], [, b]) => (a[0].date_sent ?? "").localeCompare(b[0].date_sent ?? ""));
+    const nullLast = (d: string | null | undefined) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "9999-12-31");
+    clusterEntries.sort(([, a], [, b]) => nullLast(a[0].date_sent).localeCompare(nullLast(b[0].date_sent)));
 
     const ordered: InteractionRow[] = [];
     const childrenByParent = new Map<string, InteractionRow[]>();
@@ -1089,14 +1090,14 @@ function InteractionsInner(props: {
                         {i.role_title ?? "—"}
                       </td>
                       <td
-                        className="px-4 py-3 text-muted-foreground max-w-[200px]"
+                        className="px-4 py-3 text-muted-foreground min-w-0 max-w-[280px]"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex flex-col gap-0.5 min-w-0">
                           {i.process ? (
                             <Link
                               href={`/processes/${i.process.id}`}
-                              className="inline-flex w-fit max-w-full items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60 break-words text-left"
+                              className="inline-block max-w-full rounded-full bg-blue-100 px-2 py-1 text-[10px] font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 break-words whitespace-normal text-left"
                               title={i.process.role_title}
                             >
                               {i.process.role_title}
@@ -1283,7 +1284,7 @@ function InteractionsInner(props: {
                           href={`/processes/${i.process.id}`}
                           onClick={(e) => e.stopPropagation()}
                           title={i.process.role_title}
-                          className="inline-flex max-w-full items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:hover:bg-blue-900/60 break-words"
+                          className="inline-block max-w-full rounded-full bg-blue-100 px-2 py-1 text-[10px] font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 break-words whitespace-normal"
                         >
                           {i.process.role_title}
                         </Link>

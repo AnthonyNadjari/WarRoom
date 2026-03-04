@@ -116,7 +116,7 @@ export async function getInteractionsWithRelations(): Promise<InteractionWithRel
   const list = await prisma.interaction.findMany({
     where: { userId },
     include: INTERACTION_INCLUDES,
-    orderBy: { dateSent: "desc" },
+    orderBy: { dateSent: "asc" },
   });
   return list.map((i) => mapInteraction(i as InteractionWithIncludes)) as InteractionWithRelations[];
 }
