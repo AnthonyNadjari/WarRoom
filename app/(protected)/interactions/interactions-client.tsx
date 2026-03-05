@@ -575,8 +575,13 @@ function InteractionsInner(props: {
       clusters.set(rootId, arr);
     }
 
-    // Within cluster: root first (no parent), then rest by date asc — e.g. Dina, then Youssef, then Andrey
+    // Within cluster: recruiter (Alexander Chapman) first, then root (no parent), then by date asc — Chapman, then Lahlou, then Novikov
+    const companyName = (i: InteractionRow) => (i.company as { name?: string } | null)?.name?.toLowerCase() ?? "";
+    const isRecruiterCompany = (i: InteractionRow) => companyName(i) === "alexander chapman";
     const clusterOrder = (a: InteractionRow, b: InteractionRow) => {
+      const recruiterFirstA = isRecruiterCompany(a) ? 0 : 1;
+      const recruiterFirstB = isRecruiterCompany(b) ? 0 : 1;
+      if (recruiterFirstA !== recruiterFirstB) return recruiterFirstA - recruiterFirstB;
       const rootFirstA = a.parent_interaction_id && byId.has(a.parent_interaction_id) ? 1 : 0;
       const rootFirstB = b.parent_interaction_id && byId.has(b.parent_interaction_id) ? 1 : 0;
       if (rootFirstA !== rootFirstB) return rootFirstA - rootFirstB;
