@@ -558,9 +558,6 @@ function InteractionsInner(props: {
     const byId = new Map(list.map((i) => [i.id, i]));
     const nullLast = (d: string | null | undefined) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "9999-12-31");
 
-    // Order strictly by date (oldest first, nulls last). Same date: keep stable order.
-    list.sort((a, b) => nullLast(a.date_sent).localeCompare(nullLast(b.date_sent)));
-
     function getRootId(i: InteractionRow): string {
       let curr: InteractionRow = i;
       while (curr.parent_interaction_id && byId.has(curr.parent_interaction_id)) {
@@ -568,17 +565,50 @@ function InteractionsInner(props: {
       }
       return curr.id;
     }
+
+    // Group by thread (root id): Chapman intro → Lahlou → Novikov stay together
+    const clusters = new Map<string, InteractionRow[]>();
+    for (const i of list) {
+      const rootId = getRootId(i);
+      const arr = clusters.get(rootId) ?? [];
+      arr.push(i);
+      clusters.set(rootId, arr);
+    }
+
+    // Within cluster: root first (no parent), then rest by date asc — e.g. Dina, then Youssef, then Andrey
+    const clusterOrder = (a: InteractionRow, b: InteractionRow) => {
+      const rootFirstA = a.parent_interaction_id && byId.has(a.parent_interaction_id) ? 1 : 0;
+      const rootFirstB = b.parent_interaction_id && byId.has(b.parent_interaction_id) ? 1 : 0;
+      if (rootFirstA !== rootFirstB) return rootFirstA - rootFirstB;
+      return nullLast(a.date_sent).localeCompare(nullLast(b.date_sent));
+    };
+    clusters.forEach((arr) => arr.sort(clusterOrder));
+
+    // Order clusters by oldest date in cluster so the thread block (e.g. 19/02) comes before others (e.g. 26/02)
+    const oldestInCluster = (arr: InteractionRow[]) =>
+      arr.reduce<string>((min, i) => {
+        const d = nullLast(i.date_sent);
+        return min === "" || d < min ? d : min;
+      }, "") || "9999-12-31";
+    const clusterEntries = Array.from(clusters.entries());
+    clusterEntries.sort(([, a], [, b]) => oldestInCluster(a).localeCompare(oldestInCluster(b)));
+
+    const ordered: InteractionRow[] = [];
     const displayParentId = new Map<string, string>();
     const parentIdsWithChildrenSet = new Set<string>();
-    for (const i of list) {
-      if (i.parent_interaction_id && byId.has(i.parent_interaction_id)) {
-        const rootId = getRootId(i);
-        displayParentId.set(i.id, rootId);
-        parentIdsWithChildrenSet.add(rootId);
+    for (const [, cluster] of clusterEntries) {
+      if (cluster.length === 0) continue;
+      const root = cluster[0];
+      ordered.push(root);
+      if (cluster.length > 1) parentIdsWithChildrenSet.add(root.id);
+      for (let idx = 1; idx < cluster.length; idx++) {
+        const child = cluster[idx];
+        ordered.push(child);
+        displayParentId.set(child.id, root.id);
       }
     }
 
-    return { ordered: list, parentIdsWithChildrenSet, displayParentId };
+    return { ordered, parentIdsWithChildrenSet, displayParentId };
   }, [
     interactions,
     statusFilter,
