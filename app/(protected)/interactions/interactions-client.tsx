@@ -557,17 +557,10 @@ function InteractionsInner(props: {
       list = list.filter((i) => i.date_sent && i.date_sent <= dateTo);
     const byId = new Map(list.map((i) => [i.id, i]));
     const nullLast = (d: string | null | undefined) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "9999-12-31");
-    // Within a cluster: show root (no parent) first, then follow-ups (has parent), then by date asc (null last)
-    const clusterOrder = (a: InteractionRow, b: InteractionRow) => {
-      const hasParentA = a.parent_interaction_id ? 1 : 0;
-      const hasParentB = b.parent_interaction_id ? 1 : 0;
-      if (hasParentA !== hasParentB) return hasParentA - hasParentB;
-      return nullLast(a.date_sent).localeCompare(nullLast(b.date_sent));
-    };
-    const dateAsc = (a: InteractionRow, b: InteractionRow) =>
-      nullLast(a.date_sent).localeCompare(nullLast(b.date_sent));
 
-    // Cluster = connected by parent_interaction_id. Find root of each item (follow parent until none in list).
+    // Order strictly by date (oldest first, nulls last). Same date: keep stable order.
+    list.sort((a, b) => nullLast(a.date_sent).localeCompare(nullLast(b.date_sent)));
+
     function getRootId(i: InteractionRow): string {
       let curr: InteractionRow = i;
       while (curr.parent_interaction_id && byId.has(curr.parent_interaction_id)) {
@@ -575,57 +568,17 @@ function InteractionsInner(props: {
       }
       return curr.id;
     }
-    const clusters = new Map<string, InteractionRow[]>();
-    for (const i of list) {
-      const rootId = getRootId(i);
-      const arr = clusters.get(rootId) ?? [];
-      arr.push(i);
-      clusters.set(rootId, arr);
-    }
-
-    // Within each cluster: intro/recruiter (has parent) first, then by date asc
-    clusters.forEach((arr) => arr.sort(clusterOrder));
-
-    const oldestInCluster = (arr: InteractionRow[]) =>
-      arr.reduce<string>((min, i) => {
-        const d = nullLast(i.date_sent);
-        return min === "" || d < min ? d : min;
-      }, "") || "9999-12-31";
-    const newestInCluster = (arr: InteractionRow[]) =>
-      arr.reduce<string>((max, i) => {
-        const d = nullLast(i.date_sent);
-        return max === "" || d > max ? d : max;
-      }, "") || "";
-
-    // Order clusters by oldest date in cluster (asc), then by newest (asc) so same-start clusters order consistently
-    const clusterEntries = Array.from(clusters.entries());
-    clusterEntries.sort(([, a], [, b]) => {
-      const oA = oldestInCluster(a);
-      const oB = oldestInCluster(b);
-      const c = oA.localeCompare(oB);
-      if (c !== 0) return c;
-      return newestInCluster(a).localeCompare(newestInCluster(b));
-    });
-
-    const ordered: InteractionRow[] = [];
-    const childrenByParent = new Map<string, InteractionRow[]>();
     const displayParentId = new Map<string, string>();
-    for (const [, cluster] of clusterEntries) {
-      if (cluster.length === 0) continue;
-      const starter = cluster[0];
-      ordered.push(starter);
-      for (let idx = 1; idx < cluster.length; idx++) {
-        const child = cluster[idx];
-        ordered.push(child);
-        displayParentId.set(child.id, starter.id);
-        const arr = childrenByParent.get(starter.id) ?? [];
-        arr.push(child);
-        childrenByParent.set(starter.id, arr);
+    const parentIdsWithChildrenSet = new Set<string>();
+    for (const i of list) {
+      if (i.parent_interaction_id && byId.has(i.parent_interaction_id)) {
+        const rootId = getRootId(i);
+        displayParentId.set(i.id, rootId);
+        parentIdsWithChildrenSet.add(rootId);
       }
     }
-    childrenByParent.forEach((arr) => arr.sort(dateAsc));
-    const parentIdsWithChildrenSet = new Set(childrenByParent.keys());
-    return { ordered, parentIdsWithChildrenSet, displayParentId };
+
+    return { ordered: list, parentIdsWithChildrenSet, displayParentId };
   }, [
     interactions,
     statusFilter,
