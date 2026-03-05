@@ -557,10 +557,10 @@ function InteractionsInner(props: {
       list = list.filter((i) => i.date_sent && i.date_sent <= dateTo);
     const byId = new Map(list.map((i) => [i.id, i]));
     const nullLast = (d: string | null | undefined) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : "9999-12-31");
-    // Within a cluster: show the one that "led to" the other first (has parent = intro/recruiter), then by date asc (null last)
+    // Within a cluster: show root (no parent) first, then follow-ups (has parent), then by date asc (null last)
     const clusterOrder = (a: InteractionRow, b: InteractionRow) => {
-      const hasParentA = a.parent_interaction_id ? 0 : 1;
-      const hasParentB = b.parent_interaction_id ? 0 : 1;
+      const hasParentA = a.parent_interaction_id ? 1 : 0;
+      const hasParentB = b.parent_interaction_id ? 1 : 0;
       if (hasParentA !== hasParentB) return hasParentA - hasParentB;
       return nullLast(a.date_sent).localeCompare(nullLast(b.date_sent));
     };
